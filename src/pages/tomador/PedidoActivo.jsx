@@ -1,277 +1,647 @@
 // ARCHIVO: src/pages/tomador/PedidoActivo.jsx
 
-import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
+import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { supabase } from "../../lib/supabase";
 
 const STATUS_LABEL = {
-  abierto:        { label: 'Abierto',        bg: '#E6F1FB', color: '#185FA5' },
-  en_preparacion: { label: 'En preparacion', bg: '#FAEEDA', color: '#854F0B' },
-  listo:          { label: 'Listo',          bg: '#EAF3DE', color: '#3B6D11' },
-}
+  abierto: { label: "Abierto", bg: "#E6F1FB", color: "#185FA5" },
+  en_preparacion: { label: "En preparacion", bg: "#FAEEDA", color: "#854F0B" },
+  listo: { label: "Listo", bg: "#EAF3DE", color: "#3B6D11" },
+};
 
 const PREP_LABEL = {
-  pendiente:      { label: 'Pendiente',      color: '#888880' },
-  en_preparacion: { label: 'Preparando',     color: '#854F0B' },
-  listo:          { label: 'Listo',          color: '#3B6D11' },
-}
+  pendiente: { label: "Pendiente", color: "#888880" },
+  en_preparacion: { label: "Preparando", color: "#854F0B" },
+  listo: { label: "Listo", color: "#3B6D11" },
+};
 
 export default function PedidoActivo() {
-  const { id } = useParams()
-  const navigate = useNavigate()
+  const { id } = useParams();
+  const navigate = useNavigate();
 
-  const [order, setOrder]       = useState(null)
-  const [items, setItems]       = useState([])
-  const [loading, setLoading]   = useState(true)
-  const [paying, setPaying]     = useState(false)
-  const [method, setMethod]     = useState('efectivo')
-  const [cashReceived, setCashReceived] = useState('')
-  const [saving, setSaving]     = useState(false)
+  const [order, setOrder] = useState(null);
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [method, setMethod] = useState("efectivo");
+  const [cashReceived, setCashReceived] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [editQtys, setEditQtys] = useState({});
+  const [savingEdit, setSavingEdit] = useState(false);
 
   useEffect(() => {
-    loadOrder()
-
-    // Tiempo real: actualiza cuando los preparadores cambian estado
+    loadOrder();
     const channel = supabase
       .channel(`order-${id}`)
-      .on('postgres_changes', {
-        event: 'UPDATE', schema: 'public', table: 'order_items',
-        filter: `order_id=eq.${id}`
-      }, () => loadOrder())
-      .subscribe()
-
-    return () => supabase.removeChannel(channel)
-  }, [id])
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "order_items",
+          filter: `order_id=eq.${id}`,
+        },
+        () => loadOrder(),
+      )
+      .subscribe();
+    return () => supabase.removeChannel(channel);
+  }, [id]);
 
   async function loadOrder() {
     const [{ data: orderData }, { data: itemsData }] = await Promise.all([
-      supabase.from('orders').select('*, tables(name)').eq('id', id).single(),
-      supabase.from('order_items').select('*, products(name, station)').eq('order_id', id),
-    ])
-    setOrder(orderData)
-    setItems(itemsData ?? [])
-    setLoading(false)
+      supabase.from("orders").select("*, tables(name)").eq("id", id).single(),
+      supabase
+        .from("order_items")
+        .select("*, products(name, station)")
+        .eq("order_id", id),
+    ]);
+    setOrder(orderData);
+    setItems(itemsData ?? []);
+    setLoading(false);
   }
 
   function formatPrice(n) {
-    return '$' + (n ?? 0).toLocaleString('es-CO')
+    return "$" + (n ?? 0).toLocaleString("es-CO");
   }
 
   function vuelto() {
-    const received = parseInt(cashReceived.replace(/\D/g, '')) || 0
-    return received - (order?.total ?? 0)
+    const received = parseInt(cashReceived.replace(/\D/g, "")) || 0;
+    return received - (order?.total ?? 0);
   }
 
-  function allItemsReady() {
-    return items.length > 0 && items.every(i => i.prep_status === 'listo')
+  function openEdit() {
+    const qtys = {};
+    items.forEach((item) => {
+      qtys[item.id] = item.quantity;
+    });
+    setEditQtys(qtys);
+    setEditMode(true);
+  }
+
+  function cancelEdit() {
+    setEditMode(false);
+    setEditQtys({});
+  }
+
+  async function saveEdit() {
+    setSavingEdit(true);
+    const toUpdate = Object.entries(editQtys).filter(([, qty]) => qty > 0);
+    const toDelete = Object.entries(editQtys).filter(([, qty]) => qty === 0);
+
+    try {
+      await Promise.all(
+        toUpdate.map(([itemId, qty]) =>
+          supabase
+            .from("order_items")
+            .update({ quantity: qty })
+            .eq("id", itemId),
+        ),
+      );
+      await Promise.all(
+        toDelete.map(([itemId]) =>
+          supabase.from("order_items").delete().eq("id", itemId),
+        ),
+      );
+
+      const newTotal = toUpdate.reduce((acc, [itemId, qty]) => {
+        const item = items.find((i) => i.id === itemId);
+        return acc + (item?.unit_price ?? 0) * qty;
+      }, 0);
+
+      await supabase.from("orders").update({ total: newTotal }).eq("id", id);
+      setEditMode(false);
+      setEditQtys({});
+      await loadOrder();
+    } catch (e) {
+      alert("Error al guardar cambios");
+    } finally {
+      setSavingEdit(false);
+    }
   }
 
   async function registrarPago() {
-    setSaving(true)
-    const received = parseInt(cashReceived.replace(/\D/g, '')) || null
-
+    setSaving(true);
+    const received = parseInt(cashReceived.replace(/\D/g, "")) || null;
     const { error } = await supabase
-      .from('orders')
+      .from("orders")
       .update({
-        status:             'cerrado',
-        payment_method:     method,
-        cash_received:      method === 'efectivo' ? received : null,
-        closed_at:          new Date().toISOString(),
+        status: "cerrado",
+        payment_method: method,
+        cash_received: method === "efectivo" ? received : null,
+        closed_at: new Date().toISOString(),
       })
-      .eq('id', id)
-
-    if (error) { alert('Error al registrar pago'); setSaving(false); return }
-    navigate('/tomador')
+      .eq("id", id);
+    if (error) {
+      alert("Error al registrar pago");
+      setSaving(false);
+      return;
+    }
+    navigate("/tomador");
   }
 
-  if (loading) return (
-    <div style={s.loadWrap}><p style={s.loadTxt}>Cargando pedido...</p></div>
-  )
+  if (loading)
+    return (
+      <div style={s.loadWrap}>
+        <p style={s.loadTxt}>Cargando pedido...</p>
+      </div>
+    );
+  if (!order)
+    return (
+      <div style={s.loadWrap}>
+        <p style={s.loadTxt}>Pedido no encontrado</p>
+      </div>
+    );
 
-  if (!order) return (
-    <div style={s.loadWrap}><p style={s.loadTxt}>Pedido no encontrado</p></div>
-  )
+  const statusInfo = STATUS_LABEL[order.status] ?? STATUS_LABEL.abierto;
+  const orderLabel =
+    order.type === "mesa"
+      ? order.tables?.name
+      : order.type === "para_llevar"
+        ? "Para llevar"
+        : "Domicilio";
+  const canEdit = order.status !== "cerrado";
 
-  const statusInfo = STATUS_LABEL[order.status] ?? STATUS_LABEL.abierto
-  const orderLabel = order.type === 'mesa'
-    ? order.tables?.name
-    : order.type === 'para_llevar' ? 'Para llevar' : 'Domicilio'
+  const editTotal = Object.entries(editQtys).reduce((acc, [itemId, qty]) => {
+    const item = items.find((i) => i.id === itemId);
+    return acc + (item?.unit_price ?? 0) * qty;
+  }, 0);
 
   return (
     <div style={s.page}>
-
-      {/* Topbar */}
       <div style={s.topbar}>
         <div style={s.topLeft}>
-          <button style={s.backBtn} onClick={() => navigate('/tomador')}>←</button>
+          <button style={s.backBtn} onClick={() => navigate("/tomador")}>
+            ←
+          </button>
           <div>
-            <p style={s.title}>{orderLabel} · Pedido #{id.slice(-4).toUpperCase()}</p>
+            <p style={s.title}>
+              {orderLabel} · Pedido #{id.slice(-4).toUpperCase()}
+            </p>
             <p style={s.sub}>
-              {new Date(order.created_at).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
+              {new Date(order.created_at).toLocaleTimeString("es-CO", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
             </p>
           </div>
         </div>
-        <div style={{ ...s.pill, backgroundColor: statusInfo.bg, color: statusInfo.color }}>
-          {statusInfo.label}
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {canEdit && !editMode && (
+            <button style={s.editBtn} onClick={openEdit}>
+              ✏️ Editar
+            </button>
+          )}
+          <div
+            style={{
+              ...s.pill,
+              backgroundColor: statusInfo.bg,
+              color: statusInfo.color,
+            }}
+          >
+            {statusInfo.label}
+          </div>
         </div>
       </div>
 
-      {/* Steps */}
       <div style={s.steps}>
-        <div style={{ ...s.stepDot, backgroundColor: '#378ADD' }} />
-        <div style={{ ...s.stepLine, backgroundColor: '#378ADD' }} />
-        <div style={{ ...s.stepDot, backgroundColor: '#378ADD' }} />
-        <div style={{ ...s.stepLine, backgroundColor: paying ? '#378ADD' : '#DDDDCC' }} />
-        <div style={{ ...s.stepDot, backgroundColor: paying ? '#185FA5' : '#D3D1C7' }} />
+        <div style={{ ...s.stepDot, backgroundColor: "#378ADD" }} />
+        <div style={{ ...s.stepLine, backgroundColor: "#378ADD" }} />
+        <div style={{ ...s.stepDot, backgroundColor: "#378ADD" }} />
+        <div style={{ ...s.stepLine, backgroundColor: "#DDDDCC" }} />
+        <div style={{ ...s.stepDot, backgroundColor: "#D3D1C7" }} />
       </div>
 
       <div style={s.body}>
-
-        {/* Resumen de items */}
-        <div style={s.resumenBox}>
-          {items.map(item => {
-            const prepInfo = PREP_LABEL[item.prep_status] ?? PREP_LABEL.pendiente
-            return (
-              <div key={item.id} style={s.itemRow}>
-                <div style={s.itemLeft}>
-                  <p style={s.itemName}>{item.quantity}x {item.products?.name}</p>
-                  {item.note && <p style={s.itemNote}>{item.note}</p>}
-                </div>
-                <div style={s.itemRight}>
-                  <p style={s.itemPrice}>{formatPrice(item.unit_price * item.quantity)}</p>
-                  <p style={{ ...s.itemStatus, color: prepInfo.color }}>{prepInfo.label}</p>
-                </div>
-              </div>
-            )
-          })}
-          <div style={s.divider} />
-          <div style={s.totalRow}>
-            <span>Total</span>
-            <span>{formatPrice(order.total)}</span>
-          </div>
-        </div>
-
-        {/* Nota del pedido */}
-        {order.note && (
-          <div style={s.noteBox}>
-            <span style={s.noteLabel}>Nota: </span>{order.note}
-          </div>
-        )}
-
-        {/* Si ya fue cerrado */}
-        {order.status === 'cerrado' && (
-          <div style={s.closedBox}>
-            <p style={s.closedTxt}>Pedido cerrado · {order.payment_method}</p>
-            {order.payment_method === 'efectivo' && order.cash_received && (
-              <p style={s.closedSub}>
-                Recibido: {formatPrice(order.cash_received)} · Vuelto: {formatPrice(order.cash_received - order.total)}
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* Pago — solo si no está cerrado */}
-        {order.status !== 'cerrado' && (
-          <>
-            <div style={s.divider} />
-            <p style={s.sectionLabel}>Forma de pago</p>
-
-            <div style={s.methodRow}>
-              {['efectivo', 'transferencia'].map(m => (
-                <button
-                  key={m}
-                  style={{
-                    ...s.methodBtn,
-                    backgroundColor: method === m ? '#EAF3DE' : '#FFF',
-                    borderColor:     method === m ? '#3B6D11' : '#DDDDCC',
-                    color:           method === m ? '#3B6D11' : '#666660',
-                    fontWeight:      method === m ? 600 : 400,
-                  }}
-                  onClick={() => setMethod(m)}
+        {/* MODO EDICION */}
+        {editMode ? (
+          <div style={s.editBox}>
+            <p style={s.editTitle}>Editando pedido</p>
+            <p style={s.editSub}>
+              Ajusta cantidades · Pon 0 para eliminar un ítem
+            </p>
+            {items.map((item) => {
+              const qty = editQtys[item.id] ?? item.quantity;
+              return (
+                <div
+                  key={item.id}
+                  style={{ ...s.itemRow, opacity: qty === 0 ? 0.4 : 1 }}
                 >
-                  {m === 'efectivo' ? '$ Efectivo' : '⇄ Transferencia'}
-                </button>
-              ))}
+                  <div style={s.itemLeft}>
+                    <p style={s.itemName}>{item.products?.name}</p>
+                    <p style={s.itemNote}>{formatPrice(item.unit_price)} c/u</p>
+                  </div>
+                  <div style={s.qtyCtrl}>
+                    <button
+                      style={s.qtyBtn}
+                      onClick={() =>
+                        setEditQtys((prev) => ({
+                          ...prev,
+                          [item.id]: Math.max(
+                            0,
+                            (prev[item.id] ?? item.quantity) - 1,
+                          ),
+                        }))
+                      }
+                    >
+                      −
+                    </button>
+                    <span
+                      style={{
+                        ...s.qtyNum,
+                        color: qty === 0 ? "#A32D2D" : "#1A1A1A",
+                      }}
+                    >
+                      {qty}
+                    </span>
+                    <button
+                      style={s.qtyBtn}
+                      onClick={() =>
+                        setEditQtys((prev) => ({
+                          ...prev,
+                          [item.id]: (prev[item.id] ?? item.quantity) + 1,
+                        }))
+                      }
+                    >
+                      +
+                    </button>
+                  </div>
+                  <p
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 500,
+                      color: "#1A1A1A",
+                      minWidth: 72,
+                      textAlign: "right",
+                    }}
+                  >
+                    {formatPrice(item.unit_price * qty)}
+                  </p>
+                </div>
+              );
+            })}
+            <div style={s.divider} />
+            <div style={s.totalRow}>
+              <span>Nuevo total</span>
+              <span>{formatPrice(editTotal)}</span>
+            </div>
+            <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+              <button style={{ ...s.btnGhost, flex: 1 }} onClick={cancelEdit}>
+                Cancelar
+              </button>
+              <button
+                style={{
+                  ...s.btnPrimary,
+                  flex: 2,
+                  opacity: savingEdit ? 0.7 : 1,
+                }}
+                disabled={
+                  savingEdit || Object.values(editQtys).every((q) => q === 0)
+                }
+                onClick={saveEdit}
+              >
+                {savingEdit ? "Guardando..." : "Guardar cambios"}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* VISTA NORMAL */}
+            <div style={s.resumenBox}>
+              {items.map((item) => {
+                const prepInfo =
+                  PREP_LABEL[item.prep_status] ?? PREP_LABEL.pendiente;
+                return (
+                  <div key={item.id} style={s.itemRow}>
+                    <div style={s.itemLeft}>
+                      <p style={s.itemName}>
+                        {item.quantity}x {item.products?.name}
+                      </p>
+                      {item.note && <p style={s.itemNote}>{item.note}</p>}
+                    </div>
+                    <div style={s.itemRight}>
+                      <p style={s.itemPrice}>
+                        {formatPrice(item.unit_price * item.quantity)}
+                      </p>
+                      <p style={{ ...s.itemStatus, color: prepInfo.color }}>
+                        {prepInfo.label}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+              <div style={s.divider} />
+              <div style={s.totalRow}>
+                <span>Total</span>
+                <span>{formatPrice(order.total)}</span>
+              </div>
             </div>
 
-            {method === 'efectivo' && (
-              <>
-                <input
-                  style={s.cashInput}
-                  placeholder="Efectivo recibido: $0"
-                  value={cashReceived}
-                  onChange={e => setCashReceived(e.target.value)}
-                  type="number"
-                />
-                {cashReceived !== '' && vuelto() >= 0 && (
-                  <div style={s.vueltoBox}>
-                    <span style={s.vueltoLabel}>Vuelto</span>
-                    <span style={s.vueltoVal}>{formatPrice(vuelto())}</span>
-                  </div>
-                )}
-                {cashReceived !== '' && vuelto() < 0 && (
-                  <div style={{ ...s.vueltoBox, backgroundColor: '#FCEBEB' }}>
-                    <span style={{ ...s.vueltoLabel, color: '#A32D2D' }}>Falta</span>
-                    <span style={{ ...s.vueltoVal, color: '#A32D2D' }}>{formatPrice(Math.abs(vuelto()))}</span>
-                  </div>
-                )}
-              </>
+            {order.note && (
+              <div style={s.noteBox}>
+                <span style={s.noteLabel}>Nota: </span>
+                {order.note}
+              </div>
             )}
 
-            <button
-              style={{
-                ...s.btnPrimary,
-                opacity: saving ? 0.7 : 1,
-                cursor:  saving ? 'not-allowed' : 'pointer',
-              }}
-              disabled={saving || (method === 'efectivo' && vuelto() < 0)}
-              onClick={registrarPago}
-            >
-              {saving ? 'Registrando...' : 'Registrar pago y cerrar'}
-            </button>
+            {order.status === "cerrado" && (
+              <div style={s.closedBox}>
+                <p style={s.closedTxt}>
+                  Pedido cerrado · {order.payment_method}
+                </p>
+                {order.payment_method === "efectivo" && order.cash_received && (
+                  <p style={s.closedSub}>
+                    Recibido: {formatPrice(order.cash_received)} · Vuelto:{" "}
+                    {formatPrice(order.cash_received - order.total)}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {order.status !== "cerrado" && (
+              <>
+                <div style={s.divider} />
+                <p style={s.sectionLabel}>Forma de pago</p>
+                <div style={s.methodRow}>
+                  {["efectivo", "transferencia"].map((m) => (
+                    <button
+                      key={m}
+                      style={{
+                        ...s.methodBtn,
+                        backgroundColor: method === m ? "#EAF3DE" : "#FFF",
+                        borderColor: method === m ? "#3B6D11" : "#DDDDCC",
+                        color: method === m ? "#3B6D11" : "#666660",
+                        fontWeight: method === m ? 600 : 400,
+                      }}
+                      onClick={() => setMethod(m)}
+                    >
+                      {m === "efectivo" ? "$ Efectivo" : "⇄ Transferencia"}
+                    </button>
+                  ))}
+                </div>
+
+                {method === "efectivo" && (
+                  <>
+                    <input
+                      style={s.cashInput}
+                      placeholder="Efectivo recibido: $0"
+                      value={cashReceived}
+                      onChange={(e) => setCashReceived(e.target.value)}
+                      type="number"
+                    />
+                    {cashReceived !== "" && vuelto() >= 0 && (
+                      <div style={s.vueltoBox}>
+                        <span style={s.vueltoLabel}>Vuelto</span>
+                        <span style={s.vueltoVal}>{formatPrice(vuelto())}</span>
+                      </div>
+                    )}
+                    {cashReceived !== "" && vuelto() < 0 && (
+                      <div
+                        style={{ ...s.vueltoBox, backgroundColor: "#FCEBEB" }}
+                      >
+                        <span style={{ ...s.vueltoLabel, color: "#A32D2D" }}>
+                          Falta
+                        </span>
+                        <span style={{ ...s.vueltoVal, color: "#A32D2D" }}>
+                          {formatPrice(Math.abs(vuelto()))}
+                        </span>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                <button
+                  style={{
+                    ...s.btnPrimary,
+                    opacity: saving ? 0.7 : 1,
+                    cursor: saving ? "not-allowed" : "pointer",
+                  }}
+                  disabled={saving || (method === "efectivo" && vuelto() < 0)}
+                  onClick={registrarPago}
+                >
+                  {saving ? "Registrando..." : "Registrar pago y cerrar"}
+                </button>
+              </>
+            )}
           </>
         )}
-
       </div>
     </div>
-  )
+  );
 }
 
 const s = {
-  page:        { minHeight: '100vh', backgroundColor: '#FAFAF8', fontFamily: 'sans-serif' },
-  loadWrap:    { display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' },
-  loadTxt:     { fontSize: 14, color: '#666660' },
-  topbar:      { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', backgroundColor: '#FFF', borderBottom: '0.5px solid #DDDDCC' },
-  topLeft:     { display: 'flex', alignItems: 'center', gap: 10 },
-  backBtn:     { fontSize: 18, background: 'none', border: 'none', cursor: 'pointer', color: '#666660', padding: '0 4px' },
-  title:       { fontSize: 14, fontWeight: 600, color: '#1A1A1A', margin: '0 0 2px' },
-  sub:         { fontSize: 11, color: '#666660', margin: 0 },
-  pill:        { fontSize: 11, fontWeight: 500, padding: '3px 10px', borderRadius: 20 },
-  steps:       { display: 'flex', alignItems: 'center', padding: '8px 16px', backgroundColor: '#F1EFE8', borderBottom: '0.5px solid #DDDDCC' },
-  stepDot:     { width: 8, height: 8, borderRadius: '50%', flexShrink: 0 },
-  stepLine:    { flex: 1, height: 1, backgroundColor: '#DDDDCC' },
-  body:        { padding: 16 },
-  resumenBox:  { backgroundColor: '#F1EFE8', borderRadius: 8, padding: '12px 14px', marginBottom: 10 },
-  itemRow:     { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '6px 0', borderBottom: '0.5px solid #DDDDCC' },
-  itemLeft:    { flex: 1 },
-  itemName:    { fontSize: 13, fontWeight: 500, color: '#1A1A1A', margin: '0 0 2px' },
-  itemNote:    { fontSize: 11, color: '#888880', margin: 0, fontStyle: 'italic' },
-  itemRight:   { textAlign: 'right' },
-  itemPrice:   { fontSize: 13, fontWeight: 500, color: '#1A1A1A', margin: '0 0 2px' },
-  itemStatus:  { fontSize: 10, margin: 0 },
-  divider:     { height: '0.5px', backgroundColor: '#DDDDCC', margin: '10px 0' },
-  totalRow:    { display: 'flex', justifyContent: 'space-between', fontSize: 15, fontWeight: 600, color: '#1A1A1A', padding: '4px 0' },
-  noteBox:     { fontSize: 12, color: '#666660', backgroundColor: '#F1EFE8', borderRadius: 6, padding: '8px 10px', marginBottom: 10, fontStyle: 'italic' },
-  noteLabel:   { fontWeight: 500, fontStyle: 'normal' },
-  closedBox:   { backgroundColor: '#EAF3DE', borderRadius: 8, padding: '10px 14px', marginBottom: 10 },
-  closedTxt:   { fontSize: 13, fontWeight: 500, color: '#3B6D11', margin: '0 0 2px', textTransform: 'capitalize' },
-  closedSub:   { fontSize: 12, color: '#3B6D11', margin: 0 },
-  sectionLabel:{ fontSize: 11, fontWeight: 500, color: '#666660', marginBottom: 8 },
-  methodRow:   { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 },
-  methodBtn:   { border: '0.5px solid', borderRadius: 8, padding: '12px 8px', fontSize: 12, cursor: 'pointer', fontFamily: 'sans-serif' },
-  cashInput:   { width: '100%', border: '0.5px solid #DDDDCC', borderRadius: 8, padding: '10px 12px', fontSize: 14, color: '#1A1A1A', fontFamily: 'sans-serif', backgroundColor: '#FFF', marginBottom: 8, boxSizing: 'border-box' },
-  vueltoBox:   { display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#EAF3DE', borderRadius: 8, padding: '10px 14px', marginBottom: 12 },
-  vueltoLabel: { fontSize: 13, fontWeight: 500, color: '#3B6D11' },
-  vueltoVal:   { fontSize: 16, fontWeight: 600, color: '#3B6D11' },
-  btnPrimary:  { width: '100%', padding: 12, backgroundColor: '#185FA5', color: '#E6F1FB', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, fontFamily: 'sans-serif', marginTop: 4 },
-}
+  page: {
+    minHeight: "100vh",
+    backgroundColor: "#FAFAF8",
+    fontFamily: "sans-serif",
+  },
+  loadWrap: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    height: "100vh",
+  },
+  loadTxt: { fontSize: 14, color: "#666660" },
+  topbar: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: "12px 16px",
+    backgroundColor: "#FFF",
+    borderBottom: "0.5px solid #DDDDCC",
+  },
+  topLeft: { display: "flex", alignItems: "center", gap: 10 },
+  backBtn: {
+    fontSize: 18,
+    background: "none",
+    border: "none",
+    cursor: "pointer",
+    color: "#666660",
+    padding: "0 4px",
+  },
+  title: { fontSize: 14, fontWeight: 600, color: "#1A1A1A", margin: "0 0 2px" },
+  sub: { fontSize: 11, color: "#666660", margin: 0 },
+  pill: {
+    fontSize: 11,
+    fontWeight: 500,
+    padding: "3px 10px",
+    borderRadius: 20,
+  },
+  editBtn: {
+    fontSize: 12,
+    fontWeight: 500,
+    color: "#854F0B",
+    backgroundColor: "#FAEEDA",
+    border: "0.5px solid #FAC775",
+    borderRadius: 20,
+    padding: "4px 10px",
+    cursor: "pointer",
+  },
+  steps: {
+    display: "flex",
+    alignItems: "center",
+    padding: "8px 16px",
+    backgroundColor: "#F1EFE8",
+    borderBottom: "0.5px solid #DDDDCC",
+  },
+  stepDot: { width: 8, height: 8, borderRadius: "50%", flexShrink: 0 },
+  stepLine: { flex: 1, height: 1, backgroundColor: "#DDDDCC" },
+  body: { padding: 16 },
+  editBox: {
+    backgroundColor: "#FFF",
+    border: "1.5px solid #EF9F27",
+    borderRadius: 10,
+    padding: "12px 14px",
+    marginBottom: 10,
+  },
+  editTitle: {
+    fontSize: 14,
+    fontWeight: 600,
+    color: "#854F0B",
+    margin: "0 0 2px",
+  },
+  editSub: { fontSize: 11, color: "#888880", margin: "0 0 12px" },
+  resumenBox: {
+    backgroundColor: "#F1EFE8",
+    borderRadius: 8,
+    padding: "12px 14px",
+    marginBottom: 10,
+  },
+  itemRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: "8px 0",
+    borderBottom: "0.5px solid #DDDDCC",
+  },
+  itemLeft: { flex: 1 },
+  itemName: {
+    fontSize: 13,
+    fontWeight: 500,
+    color: "#1A1A1A",
+    margin: "0 0 2px",
+  },
+  itemNote: { fontSize: 11, color: "#888880", margin: 0, fontStyle: "italic" },
+  itemRight: { textAlign: "right" },
+  itemPrice: {
+    fontSize: 13,
+    fontWeight: 500,
+    color: "#1A1A1A",
+    margin: "0 0 2px",
+  },
+  itemStatus: { fontSize: 10, margin: 0 },
+  qtyCtrl: { display: "flex", alignItems: "center", gap: 8, marginRight: 10 },
+  qtyBtn: {
+    width: 26,
+    height: 26,
+    borderRadius: "50%",
+    backgroundColor: "#F1EFE8",
+    border: "0.5px solid #DDDDCC",
+    fontSize: 16,
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  qtyNum: { fontSize: 14, fontWeight: 500, minWidth: 16, textAlign: "center" },
+  divider: { height: "0.5px", backgroundColor: "#DDDDCC", margin: "10px 0" },
+  totalRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    fontSize: 15,
+    fontWeight: 600,
+    color: "#1A1A1A",
+    padding: "4px 0",
+  },
+  noteBox: {
+    fontSize: 12,
+    color: "#666660",
+    backgroundColor: "#F1EFE8",
+    borderRadius: 6,
+    padding: "8px 10px",
+    marginBottom: 10,
+    fontStyle: "italic",
+  },
+  noteLabel: { fontWeight: 500, fontStyle: "normal" },
+  closedBox: {
+    backgroundColor: "#EAF3DE",
+    borderRadius: 8,
+    padding: "10px 14px",
+    marginBottom: 10,
+  },
+  closedTxt: {
+    fontSize: 13,
+    fontWeight: 500,
+    color: "#3B6D11",
+    margin: "0 0 2px",
+    textTransform: "capitalize",
+  },
+  closedSub: { fontSize: 12, color: "#3B6D11", margin: 0 },
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: 500,
+    color: "#666660",
+    marginBottom: 8,
+  },
+  methodRow: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap: 8,
+    marginBottom: 12,
+  },
+  methodBtn: {
+    border: "0.5px solid",
+    borderRadius: 8,
+    padding: "12px 8px",
+    fontSize: 12,
+    cursor: "pointer",
+    fontFamily: "sans-serif",
+  },
+  cashInput: {
+    width: "100%",
+    border: "0.5px solid #DDDDCC",
+    borderRadius: 8,
+    padding: "10px 12px",
+    fontSize: 14,
+    color: "#1A1A1A",
+    fontFamily: "sans-serif",
+    backgroundColor: "#FFF",
+    marginBottom: 8,
+    boxSizing: "border-box",
+  },
+  vueltoBox: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "#EAF3DE",
+    borderRadius: 8,
+    padding: "10px 14px",
+    marginBottom: 12,
+  },
+  vueltoLabel: { fontSize: 13, fontWeight: 500, color: "#3B6D11" },
+  vueltoVal: { fontSize: 16, fontWeight: 600, color: "#3B6D11" },
+  btnPrimary: {
+    width: "100%",
+    padding: 12,
+    backgroundColor: "#185FA5",
+    color: "#E6F1FB",
+    border: "none",
+    borderRadius: 8,
+    fontSize: 14,
+    fontWeight: 600,
+    fontFamily: "sans-serif",
+    marginTop: 4,
+    cursor: "pointer",
+  },
+  btnGhost: {
+    padding: 10,
+    backgroundColor: "#FFF",
+    color: "#1A1A1A",
+    border: "0.5px solid #DDDDCC",
+    borderRadius: 8,
+    fontSize: 13,
+    fontFamily: "sans-serif",
+    cursor: "pointer",
+  },
+};
