@@ -19,20 +19,31 @@ export default function Reportes() {
 
   async function loadToday() {
     setLoading(true);
-    const today = new Date().toISOString().split("T")[0];
+    //const today = new Date().toISOString().split("T")[0];
 
-    const [{ data: ordersData }, { data: summary }] = await Promise.all([
-      supabase
-        .from("orders")
-        .select(
-          "*, tables(name), order_items(quantity, unit_price, products(name))",
-        )
-        .eq("status", "cerrado")
-        .gte("closed_at", today + "T00:00:00")
-        .lte("closed_at", today + "T23:59:59")
-        .order("closed_at", { ascending: false }),
-      supabase.from("daily_summaries").select("*").eq("date", today).single(),
-    ]);
+    const today = new Date().toLocaleDateString("en-CA", {
+      timeZone: "America/Bogota",
+    });
+    console.log("today:", today);
+
+    const [{ data: ordersData, error: ordersError }, { data: summary }] =
+      await Promise.all([
+        supabase
+          .from("orders")
+          .select(
+            "*, tables(name), order_items(quantity, unit_price, products(name))",
+          )
+          .eq("status", "cerrado")
+          .gte("closed_at", today + "T00:00:00")
+          .lte("closed_at", today + "T23:59:59")
+          .order("closed_at", { ascending: false }),
+        supabase
+          .from("daily_summaries")
+          .select("*")
+          .eq("date", today)
+          .maybeSingle(),
+      ]);
+    console.log("ordersData:", ordersData, "error:", ordersError);
 
     setDayAlreadyClosed(!!summary?.exported);
 
@@ -71,7 +82,7 @@ export default function Reportes() {
     setLoading(false);
   }
   useEffect(() => {
-      // eslint-disable-next-line  react-hooks/set-state-in-effect
+    // eslint-disable-next-line  react-hooks/set-state-in-effect
     loadToday();
   }, []);
 
@@ -95,7 +106,7 @@ export default function Reportes() {
     setHistory(data ?? []);
   }
   useEffect(() => {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (tab === "historico") loadHistory();
   }, [tab, histTab]);
 
