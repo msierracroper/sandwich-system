@@ -6,21 +6,22 @@ import { supabase } from "../../lib/supabase";
 
 export default function Reportes() {
   const navigate = useNavigate();
-  const [tab, setTab] = useState("hoy"); // 'hoy' | 'historico'
-  const [histTab, setHistTab] = useState("semana"); // 'semana' | 'mes'
+  const [tab, setTab] = useState("hoy"); // 'hoy' | 'historico' | 'estadisticas'
+  const [histTab, setHistTab] = useState("semana");
+  const [statsTab, setStatsTab] = useState("semana"); // para estadisticas
   const [stats, setStats] = useState(null);
   const [orders, setOrders] = useState([]);
   const [topProducts, setTopProducts] = useState([]);
   const [history, setHistory] = useState([]);
+  const [statsData, setStatsData] = useState(null); // datos estadisticas
   const [loading, setLoading] = useState(true);
+  const [loadingStats, setLoadingStats] = useState(false);
   const [closing, setClosing] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [dayAlreadyClosed, setDayAlreadyClosed] = useState(false);
 
   async function loadToday() {
     setLoading(true);
-    //const today = new Date().toISOString().split("T")[0];
-
     const today = new Date().toLocaleDateString("en-CA", {
       timeZone: "America/Bogota",
     });
@@ -43,7 +44,6 @@ export default function Reportes() {
     ]);
 
     setDayAlreadyClosed(!!summary?.exported);
-
     const data = ordersData ?? [];
     setOrders(data);
 
@@ -54,7 +54,6 @@ export default function Reportes() {
     const transfer = data
       .filter((o) => o.payment_method === "transferencia")
       .reduce((a, o) => a + (o.total ?? 0), 0);
-
     setStats({
       total,
       orders: data.length,
@@ -63,7 +62,6 @@ export default function Reportes() {
       avg: data.length > 0 ? Math.round(total / data.length) : 0,
     });
 
-    // Top productos
     const prodMap = {};
     for (const order of data) {
       for (const item of order.order_items ?? []) {
@@ -78,10 +76,6 @@ export default function Reportes() {
     setTopProducts(sorted);
     setLoading(false);
   }
-  useEffect(() => {
-    // eslint-disable-next-line  react-hooks/set-state-in-effect
-    loadToday();
-  }, []);
 
   async function loadHistory() {
     const today = new Date();
@@ -93,27 +87,106 @@ export default function Reportes() {
       from = new Date(today);
       from.setDate(1);
     }
-
     const { data } = await supabase
       .from("daily_summaries")
       .select("*")
       .gte("date", from.toISOString().split("T")[0])
       .order("date", { ascending: false });
-
     setHistory(data ?? []);
   }
+
+  async function loadEstadisticas() {
+    setLoadingStats(true);
+    const today = new Date();
+    let from;
+    if (statsTab === "semana") {
+      from = new Date(today);
+      from.setDate(today.getDate() - 7);
+    } else {
+      from = new Date(today);
+      from.setDate(1);
+    }
+
+    const fromStr = from.toLocaleDateString("en-CA", {
+      timeZone: "America/Bogota",
+    });
+    const toStr = today.toLocaleDateString("en-CA", {
+      timeZone: "America/Bogota",
+    });
+
+    const { data: itemsData } = await supabase
+      .from("order_items")
+      .select(
+        "quantity, unit_price, station, products(name, category), orders!inner(status, closed_at)",
+      )
+      .eq("orders.status", "cerrado")
+      .gte("orders.closed_at", fromStr + "T00:00:00")
+      .lte("orders.closed_at", toStr + "T23:59:59");
+
+    if (!itemsData) {
+      setLoadingStats(false);
+      return;
+    }
+
+    // Agrupar por producto
+    const prodMap = {};
+    let totalIngresos = 0;
+    let totalUnidades = 0;
+
+    for (const item of itemsData) {
+      const name = item.products?.name ?? "Desconocido";
+      const category = item.products?.category ?? "otro";
+      const station = item.station;
+      const qty = item.quantity;
+      const ingreso = item.unit_price * qty;
+
+      if (!prodMap[name]) {
+        prodMap[name] = { name, category, station, qty: 0, ingreso: 0 };
+      }
+      prodMap[name].qty += qty;
+      prodMap[name].ingreso += ingreso;
+      totalIngresos += ingreso;
+      totalUnidades += qty;
+    }
+
+    const ranking = Object.values(prodMap).sort((a, b) => b.qty - a.qty);
+
+    // Por categoria
+    const catMap = {};
+    for (const p of ranking) {
+      if (!catMap[p.category]) catMap[p.category] = { qty: 0, ingreso: 0 };
+      catMap[p.category].qty += p.qty;
+      catMap[p.category].ingreso += p.ingreso;
+    }
+
+    setStatsData({
+      ranking,
+      totalIngresos,
+      totalUnidades,
+      catMap,
+      periodo: statsTab,
+    });
+    setLoadingStats(false);
+  }
+
+  // eslint-disable-next-line
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadToday();
+  }, []);
+  // eslint-disable-next-line
+  useEffect(() => {
     if (tab === "historico") loadHistory();
   }, [tab, histTab]);
+  // eslint-disable-next-line
+  useEffect(() => {
+    if (tab === "estadisticas") loadEstadisticas();
+  }, [tab, statsTab]);
 
   async function cerrarDia() {
     setClosing(true);
     const today = new Date().toLocaleDateString("en-CA", {
       timeZone: "America/Bogota",
     });
-
-    // Guardar resumen en daily_summaries
     const { error } = await supabase.from("daily_summaries").upsert(
       {
         date: today,
@@ -126,25 +199,20 @@ export default function Reportes() {
       },
       { onConflict: "date" },
     );
-
     if (error) {
       alert("Error al cerrar el dia");
       setClosing(false);
       return;
     }
-
     setDayAlreadyClosed(true);
     setShowConfirm(false);
     setClosing(false);
-    alert(
-      "Dia cerrado correctamente. Recuerda exportar el resumen a Google Sheets desde el panel de Supabase o cuando conectemos la Edge Function.",
-    );
+    alert("Dia cerrado correctamente.");
   }
 
   function formatPrice(n) {
     return "$" + (n ?? 0).toLocaleString("es-CO");
   }
-
   function formatDate(dateStr) {
     return new Date(dateStr + "T12:00:00").toLocaleDateString("es-CO", {
       weekday: "long",
@@ -153,7 +221,18 @@ export default function Reportes() {
     });
   }
 
+  const CAT_LABEL = {
+    sandwich: "Sándwiches",
+    granizado: "Granizados",
+    adicion: "Adiciones",
+  };
+  const CAT_COLOR = {
+    sandwich: "#185FA5",
+    granizado: "#0F6E56",
+    adicion: "#854F0B",
+  };
   const maxQty = topProducts[0]?.qty ?? 1;
+  const maxRankQty = statsData?.ranking[0]?.qty ?? 1;
 
   return (
     <div style={s.page}>
@@ -181,6 +260,7 @@ export default function Reportes() {
         {[
           ["hoy", "Hoy"],
           ["historico", "Histórico"],
+          ["estadisticas", "Estadísticas"],
         ].map(([val, lbl]) => (
           <button
             key={val}
@@ -205,7 +285,6 @@ export default function Reportes() {
             <p style={s.loadTxt}>Calculando...</p>
           ) : (
             <>
-              {/* Stats grid */}
               <div style={s.statsGrid}>
                 <div style={s.statCard}>
                   <p style={s.statLabel}>Total vendido</p>
@@ -239,7 +318,6 @@ export default function Reportes() {
                 </div>
               </div>
 
-              {/* Barra pagos */}
               {stats.total > 0 && (
                 <div style={s.barWrap}>
                   <div style={s.barLabels}>
@@ -270,7 +348,6 @@ export default function Reportes() {
                 </div>
               )}
 
-              {/* Top productos */}
               {topProducts.length > 0 && (
                 <>
                   <div style={s.divider} />
@@ -295,7 +372,6 @@ export default function Reportes() {
                 </>
               )}
 
-              {/* Pedidos del dia */}
               {orders.length > 0 && (
                 <>
                   <div style={s.divider} />
@@ -309,9 +385,8 @@ export default function Reportes() {
                               ? order.tables?.name
                               : order.type === "para_llevar"
                                 ? "Para llevar"
-                                : "Domicilio"}
-                            {" · #"}
-                            {order.id.slice(-4).toUpperCase()}
+                                : "Domicilio"}{" "}
+                            · #{order.id.slice(-4).toUpperCase()}
                           </p>
                           <p style={s.orderMeta}>
                             {order.payment_method} ·{" "}
@@ -325,15 +400,11 @@ export default function Reportes() {
                 </>
               )}
 
-              {/* Boton cierre */}
               <div style={s.divider} />
               {dayAlreadyClosed ? (
                 <div style={s.closedBox}>
                   <p style={s.closedTxt}>✓ Día cerrado correctamente</p>
-                  <p style={s.closedSub}>
-                    El resumen fue guardado. Próximamente se exportará a Google
-                    Sheets automáticamente.
-                  </p>
+                  <p style={s.closedSub}>El resumen fue guardado.</p>
                 </div>
               ) : (
                 <button
@@ -390,7 +461,6 @@ export default function Reportes() {
                   </div>
                 </div>
               ))}
-
               <div style={s.divider} />
               <div style={s.summaryCard}>
                 <p style={s.statLabel}>
@@ -403,6 +473,185 @@ export default function Reportes() {
                   {history.reduce((a, d) => a + d.orders_count, 0)} pedidos ·{" "}
                   {history.length} días cerrados
                 </p>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ── TAB ESTADISTICAS ── */}
+      {tab === "estadisticas" && (
+        <div style={s.body}>
+          <div style={s.histTabs}>
+            {[
+              ["semana", "Esta semana"],
+              ["mes", "Este mes"],
+            ].map(([val, lbl]) => (
+              <button
+                key={val}
+                style={{
+                  ...s.histTab,
+                  backgroundColor: statsTab === val ? "#E6F1FB" : "#FFF",
+                  borderColor: statsTab === val ? "#378ADD" : "#DDDDCC",
+                  color: statsTab === val ? "#185FA5" : "#666660",
+                  fontWeight: statsTab === val ? 600 : 400,
+                }}
+                onClick={() => setStatsTab(val)}
+              >
+                {lbl}
+              </button>
+            ))}
+          </div>
+
+          {loadingStats ? (
+            <p style={s.loadTxt}>Calculando estadísticas...</p>
+          ) : !statsData || statsData.ranking.length === 0 ? (
+            <p style={s.loadTxt}>No hay datos para este período</p>
+          ) : (
+            <>
+              {/* Resumen general */}
+              <div style={s.statsGrid}>
+                <div style={s.statCard}>
+                  <p style={s.statLabel}>Total ingresos</p>
+                  <p style={{ ...s.statVal, fontSize: 16 }}>
+                    {formatPrice(statsData.totalIngresos)}
+                  </p>
+                  <p style={s.statSub}>
+                    {statsTab === "semana" ? "últimos 7 días" : "este mes"}
+                  </p>
+                </div>
+                <div style={s.statCard}>
+                  <p style={s.statLabel}>Unidades vendidas</p>
+                  <p style={{ ...s.statVal, fontSize: 16 }}>
+                    {statsData.totalUnidades}
+                  </p>
+                  <p style={s.statSub}>ítems totales</p>
+                </div>
+              </div>
+
+              {/* Por categoria */}
+              <div style={s.divider} />
+              <p style={s.sectionLabel}>Por categoría</p>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 6,
+                  marginBottom: 12,
+                }}
+              >
+                {Object.entries(statsData.catMap).map(([cat, data]) => (
+                  <div key={cat} style={s.catRow}>
+                    <div
+                      style={{
+                        ...s.catDot,
+                        backgroundColor: CAT_COLOR[cat] ?? "#888880",
+                      }}
+                    />
+                    <span style={s.catName}>{CAT_LABEL[cat] ?? cat}</span>
+                    <span style={s.catQty}>{data.qty} uds</span>
+                    <span style={s.catIngreso}>
+                      {formatPrice(data.ingreso)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Ranking productos — barras */}
+              <div style={s.divider} />
+              <p style={s.sectionLabel}>Ranking de productos</p>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 10,
+                  marginBottom: 12,
+                }}
+              >
+                {statsData.ranking.map((p, i) => (
+                  <div key={p.name} style={s.statProdRow}>
+                    <div style={s.statProdTop}>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                        }}
+                      >
+                        <span style={{ ...s.rankNum, fontSize: 12 }}>
+                          {i + 1}
+                        </span>
+                        <span style={s.statProdName}>{p.name}</span>
+                      </div>
+                      <span style={s.statProdQty}>{p.qty} uds</span>
+                    </div>
+                    <div style={s.statBarTrack}>
+                      <div
+                        style={{
+                          ...s.statBarFill,
+                          width: `${Math.round((p.qty / maxRankQty) * 100)}%`,
+                          backgroundColor: CAT_COLOR[p.category] ?? "#185FA5",
+                        }}
+                      />
+                    </div>
+                    <div style={s.statProdBottom}>
+                      <span style={{ ...s.catName, fontSize: 10 }}>
+                        {CAT_LABEL[p.category] ?? p.category}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: 11,
+                          color: "#3B6D11",
+                          fontWeight: 500,
+                        }}
+                      >
+                        {formatPrice(p.ingreso)}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Tabla resumen */}
+              <div style={s.divider} />
+              <p style={s.sectionLabel}>Tabla completa</p>
+              <div style={s.tabla}>
+                <div style={s.tablaHeader}>
+                  <span style={{ flex: 1 }}>Producto</span>
+                  <span style={{ minWidth: 50, textAlign: "right" }}>Uds</span>
+                  <span style={{ minWidth: 80, textAlign: "right" }}>
+                    Ingresos
+                  </span>
+                </div>
+                {statsData.ranking.map((p) => (
+                  <div key={p.name} style={s.tablaRow}>
+                    <span style={{ flex: 1, fontSize: 12, color: "#1A1A1A" }}>
+                      {p.name}
+                    </span>
+                    <span
+                      style={{
+                        minWidth: 50,
+                        textAlign: "right",
+                        fontSize: 12,
+                        fontWeight: 500,
+                        color: "#1A1A1A",
+                      }}
+                    >
+                      {p.qty}
+                    </span>
+                    <span
+                      style={{
+                        minWidth: 80,
+                        textAlign: "right",
+                        fontSize: 12,
+                        color: "#3B6D11",
+                        fontWeight: 500,
+                      }}
+                    >
+                      {formatPrice(p.ingreso)}
+                    </span>
+                  </div>
+                ))}
               </div>
             </>
           )}
@@ -501,7 +750,7 @@ const s = {
   },
   tabs: {
     display: "flex",
-    gap: 8,
+    gap: 6,
     padding: "10px 16px",
     backgroundColor: "#FFF",
     borderBottom: "0.5px solid #DDDDCC",
@@ -510,8 +759,8 @@ const s = {
     flex: 1,
     border: "0.5px solid",
     borderRadius: 8,
-    padding: "8px",
-    fontSize: 13,
+    padding: "8px 4px",
+    fontSize: 12,
     cursor: "pointer",
     fontFamily: "sans-serif",
   },
@@ -660,6 +909,78 @@ const s = {
     backgroundColor: "#F1EFE8",
     borderRadius: 8,
     padding: "12px 14px",
+  },
+  catRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    padding: "7px 10px",
+    backgroundColor: "#FFF",
+    border: "0.5px solid #DDDDCC",
+    borderRadius: 8,
+  },
+  catDot: { width: 10, height: 10, borderRadius: "50%", flexShrink: 0 },
+  catName: { fontSize: 12, color: "#666660", flex: 1 },
+  catQty: {
+    fontSize: 12,
+    fontWeight: 500,
+    color: "#1A1A1A",
+    minWidth: 50,
+    textAlign: "right",
+  },
+  catIngreso: {
+    fontSize: 12,
+    fontWeight: 500,
+    color: "#3B6D11",
+    minWidth: 80,
+    textAlign: "right",
+  },
+  statProdRow: {
+    backgroundColor: "#FFF",
+    border: "0.5px solid #DDDDCC",
+    borderRadius: 8,
+    padding: "8px 10px",
+  },
+  statProdTop: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 5,
+  },
+  statProdName: { fontSize: 13, fontWeight: 500, color: "#1A1A1A" },
+  statProdQty: { fontSize: 12, fontWeight: 500, color: "#1A1A1A" },
+  statBarTrack: {
+    height: 6,
+    backgroundColor: "#F1EFE8",
+    borderRadius: 3,
+    overflow: "hidden",
+    marginBottom: 5,
+  },
+  statBarFill: { height: "100%", borderRadius: 3 },
+  statProdBottom: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  tabla: {
+    backgroundColor: "#FFF",
+    border: "0.5px solid #DDDDCC",
+    borderRadius: 8,
+    overflow: "hidden",
+  },
+  tablaHeader: {
+    display: "flex",
+    padding: "8px 12px",
+    backgroundColor: "#F1EFE8",
+    borderBottom: "0.5px solid #DDDDCC",
+    fontSize: 11,
+    fontWeight: 500,
+    color: "#666660",
+  },
+  tablaRow: {
+    display: "flex",
+    padding: "8px 12px",
+    borderBottom: "0.5px solid #DDDDCC",
   },
   overlay: {
     position: "fixed",
