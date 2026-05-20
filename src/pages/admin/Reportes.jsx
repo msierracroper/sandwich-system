@@ -109,7 +109,9 @@ export default function Reportes() {
 
   async function cerrarDia() {
     setClosing(true);
-    const today = new Date().toISOString().split("T")[0];
+    const today = new Date().toLocaleDateString("en-CA", {
+      timeZone: "America/Bogota",
+    });
 
     // Guardar resumen en daily_summaries
     const { error } = await supabase.from("daily_summaries").upsert(
