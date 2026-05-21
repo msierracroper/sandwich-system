@@ -6,14 +6,14 @@ import { supabase } from "../../lib/supabase";
 
 export default function Reportes() {
   const navigate = useNavigate();
-  const [tab, setTab] = useState("hoy"); // 'hoy' | 'historico' | 'estadisticas'
+  const [tab, setTab] = useState("hoy");
   const [histTab, setHistTab] = useState("semana");
-  const [statsTab, setStatsTab] = useState("semana"); // para estadisticas
+  const [statsTab, setStatsTab] = useState("semana");
   const [stats, setStats] = useState(null);
   const [orders, setOrders] = useState([]);
   const [topProducts, setTopProducts] = useState([]);
   const [history, setHistory] = useState([]);
-  const [statsData, setStatsData] = useState(null); // datos estadisticas
+  const [statsData, setStatsData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadingStats, setLoadingStats] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -25,7 +25,6 @@ export default function Reportes() {
     const today = new Date().toLocaleDateString("en-CA", {
       timeZone: "America/Bogota",
     });
-
     const [{ data: ordersData }, { data: summary }] = await Promise.all([
       supabase
         .from("orders")
@@ -42,11 +41,9 @@ export default function Reportes() {
         .eq("date", today)
         .maybeSingle(),
     ]);
-
     setDayAlreadyClosed(!!summary?.exported);
     const data = ordersData ?? [];
     setOrders(data);
-
     const total = data.reduce((a, o) => a + (o.total ?? 0), 0);
     const cash = data
       .filter((o) => o.payment_method === "efectivo")
@@ -61,7 +58,6 @@ export default function Reportes() {
       transfer,
       avg: data.length > 0 ? Math.round(total / data.length) : 0,
     });
-
     const prodMap = {};
     for (const order of data) {
       for (const item of order.order_items ?? []) {
@@ -114,14 +110,22 @@ export default function Reportes() {
       timeZone: "America/Bogota",
     });
 
-    const { data: itemsData } = await supabase
-      .from("order_items")
-      .select(
-        "quantity, unit_price, station, products(name, category), orders!inner(status, closed_at)",
-      )
-      .eq("orders.status", "cerrado")
-      .gte("orders.closed_at", fromStr + "T00:00:00")
-      .lte("orders.closed_at", toStr + "T23:59:59");
+    // Cargar items y gastos en paralelo
+    const [{ data: itemsData }, { data: expensesData }] = await Promise.all([
+      supabase
+        .from("order_items")
+        .select(
+          "quantity, unit_price, station, products(name, category), orders!inner(status, closed_at)",
+        )
+        .eq("orders.status", "cerrado")
+        .gte("orders.closed_at", fromStr + "T00:00:00")
+        .lte("orders.closed_at", toStr + "T23:59:59"),
+      supabase
+        .from("expenses")
+        .select("amount, category")
+        .gte("date", fromStr)
+        .lte("date", toStr),
+    ]);
 
     if (!itemsData) {
       setLoadingStats(false);
@@ -139,10 +143,8 @@ export default function Reportes() {
       const station = item.station;
       const qty = item.quantity;
       const ingreso = item.unit_price * qty;
-
-      if (!prodMap[name]) {
+      if (!prodMap[name])
         prodMap[name] = { name, category, station, qty: 0, ingreso: 0 };
-      }
       prodMap[name].qty += qty;
       prodMap[name].ingreso += ingreso;
       totalIngresos += ingreso;
@@ -151,7 +153,7 @@ export default function Reportes() {
 
     const ranking = Object.values(prodMap).sort((a, b) => b.qty - a.qty);
 
-    // Por categoria
+    // Por categoria ventas
     const catMap = {};
     for (const p of ranking) {
       if (!catMap[p.category]) catMap[p.category] = { qty: 0, ingreso: 0 };
@@ -159,11 +161,26 @@ export default function Reportes() {
       catMap[p.category].ingreso += p.ingreso;
     }
 
+    // Gastos
+    const totalGastos = (expensesData ?? []).reduce(
+      (a, e) => a + (e.amount ?? 0),
+      0,
+    );
+    const gastosPorCat = {};
+    for (const e of expensesData ?? []) {
+      gastosPorCat[e.category] = (gastosPorCat[e.category] ?? 0) + e.amount;
+    }
+
+    const utilidad = totalIngresos - totalGastos;
+
     setStatsData({
       ranking,
       totalIngresos,
       totalUnidades,
       catMap,
+      totalGastos,
+      gastosPorCat,
+      utilidad,
       periodo: statsTab,
     });
     setLoadingStats(false);
@@ -231,6 +248,21 @@ export default function Reportes() {
     granizado: "#0F6E56",
     adicion: "#854F0B",
   };
+  const GASTO_LABEL = {
+    materia_prima: "Materia prima",
+    servicios: "Servicios",
+    arriendo: "Arriendo",
+    nomina: "Nómina",
+    otro: "Otro",
+  };
+  const GASTO_COLOR = {
+    materia_prima: "#185FA5",
+    servicios: "#0F6E56",
+    arriendo: "#854F0B",
+    nomina: "#534AB7",
+    otro: "#444441",
+  };
+
   const maxQty = topProducts[0]?.qty ?? 1;
   const maxRankQty = statsData?.ranking[0]?.qty ?? 1;
 
@@ -255,7 +287,6 @@ export default function Reportes() {
         {dayAlreadyClosed && <span style={s.closedBadge}>Dia cerrado</span>}
       </div>
 
-      {/* Tabs */}
       <div style={s.tabs}>
         {[
           ["hoy", "Hoy"],
@@ -317,7 +348,6 @@ export default function Reportes() {
                   </p>
                 </div>
               </div>
-
               {stats.total > 0 && (
                 <div style={s.barWrap}>
                   <div style={s.barLabels}>
@@ -347,7 +377,6 @@ export default function Reportes() {
                   </div>
                 </div>
               )}
-
               {topProducts.length > 0 && (
                 <>
                   <div style={s.divider} />
@@ -371,7 +400,6 @@ export default function Reportes() {
                   </div>
                 </>
               )}
-
               {orders.length > 0 && (
                 <>
                   <div style={s.divider} />
@@ -399,7 +427,6 @@ export default function Reportes() {
                   </div>
                 </>
               )}
-
               <div style={s.divider} />
               {dayAlreadyClosed ? (
                 <div style={s.closedBox}>
@@ -442,7 +469,6 @@ export default function Reportes() {
               </button>
             ))}
           </div>
-
           {history.length === 0 ? (
             <p style={s.loadTxt}>No hay días cerrados en este período</p>
           ) : (
@@ -509,29 +535,161 @@ export default function Reportes() {
             <p style={s.loadTxt}>No hay datos para este período</p>
           ) : (
             <>
-              {/* Resumen general */}
-              <div style={s.statsGrid}>
-                <div style={s.statCard}>
-                  <p style={s.statLabel}>Total ingresos</p>
-                  <p style={{ ...s.statVal, fontSize: 16 }}>
+              {/* ── INGRESOS vs GASTOS vs UTILIDAD ── */}
+              <p style={s.sectionLabel}>Resumen financiero</p>
+              <div style={s.finGrid}>
+                <div style={{ ...s.finCard, borderLeftColor: "#3B6D11" }}>
+                  <p style={s.statLabel}>Ingresos</p>
+                  <p style={{ ...s.statVal, fontSize: 16, color: "#3B6D11" }}>
                     {formatPrice(statsData.totalIngresos)}
                   </p>
                   <p style={s.statSub}>
-                    {statsTab === "semana" ? "últimos 7 días" : "este mes"}
+                    {statsData.totalUnidades} uds vendidas
                   </p>
                 </div>
-                <div style={s.statCard}>
-                  <p style={s.statLabel}>Unidades vendidas</p>
-                  <p style={{ ...s.statVal, fontSize: 16 }}>
-                    {statsData.totalUnidades}
+                <div style={{ ...s.finCard, borderLeftColor: "#A32D2D" }}>
+                  <p style={s.statLabel}>Gastos</p>
+                  <p style={{ ...s.statVal, fontSize: 16, color: "#A32D2D" }}>
+                    {formatPrice(statsData.totalGastos)}
                   </p>
-                  <p style={s.statSub}>ítems totales</p>
+                  <p style={s.statSub}>registrados</p>
                 </div>
               </div>
 
-              {/* Por categoria */}
+              {/* Utilidad */}
+              <div
+                style={{
+                  ...s.utilCard,
+                  backgroundColor:
+                    statsData.utilidad >= 0 ? "#EAF3DE" : "#FCEBEB",
+                  borderColor: statsData.utilidad >= 0 ? "#3B6D11" : "#A32D2D",
+                }}
+              >
+                <div>
+                  <p
+                    style={{
+                      ...s.statLabel,
+                      color: statsData.utilidad >= 0 ? "#3B6D11" : "#A32D2D",
+                    }}
+                  >
+                    {statsData.utilidad >= 0
+                      ? "✓ Utilidad estimada"
+                      : "⚠ Pérdida estimada"}
+                  </p>
+                  <p
+                    style={{
+                      fontSize: 10,
+                      color: statsData.utilidad >= 0 ? "#3B6D11" : "#A32D2D",
+                      margin: 0,
+                    }}
+                  >
+                    Ingresos − Gastos registrados
+                  </p>
+                </div>
+                <p
+                  style={{
+                    fontSize: 22,
+                    fontWeight: 700,
+                    color: statsData.utilidad >= 0 ? "#3B6D11" : "#A32D2D",
+                    margin: 0,
+                  }}
+                >
+                  {formatPrice(Math.abs(statsData.utilidad))}
+                </p>
+              </div>
+
+              {/* Barra ingresos vs gastos */}
+              {statsData.totalIngresos > 0 && (
+                <div style={{ marginBottom: 16 }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      marginBottom: 4,
+                    }}
+                  >
+                    <span style={{ fontSize: 11, color: "#3B6D11" }}>
+                      Ingresos{" "}
+                      {Math.round(
+                        (statsData.totalIngresos /
+                          (statsData.totalIngresos + statsData.totalGastos)) *
+                          100,
+                      )}
+                      %
+                    </span>
+                    <span style={{ fontSize: 11, color: "#A32D2D" }}>
+                      Gastos{" "}
+                      {Math.round(
+                        (statsData.totalGastos /
+                          (statsData.totalIngresos + statsData.totalGastos)) *
+                          100,
+                      )}
+                      %
+                    </span>
+                  </div>
+                  <div style={{ ...s.barTrack, height: 10 }}>
+                    <div
+                      style={{
+                        ...s.barFill,
+                        width: `${Math.round((statsData.totalIngresos / (statsData.totalIngresos + statsData.totalGastos)) * 100)}%`,
+                        backgroundColor: "#3B6D11",
+                      }}
+                    />
+                    <div
+                      style={{
+                        ...s.barFill,
+                        width: `${Math.round((statsData.totalGastos / (statsData.totalIngresos + statsData.totalGastos)) * 100)}%`,
+                        backgroundColor: "#A32D2D",
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Gastos por categoria */}
+              {statsData.totalGastos > 0 && (
+                <>
+                  <div style={s.divider} />
+                  <p style={s.sectionLabel}>Gastos por categoría</p>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 6,
+                      marginBottom: 12,
+                    }}
+                  >
+                    {Object.entries(statsData.gastosPorCat).map(
+                      ([cat, amount]) => (
+                        <div key={cat} style={s.catRow}>
+                          <div
+                            style={{
+                              ...s.catDot,
+                              backgroundColor: GASTO_COLOR[cat] ?? "#888880",
+                            }}
+                          />
+                          <span style={s.catName}>
+                            {GASTO_LABEL[cat] ?? cat}
+                          </span>
+                          <span
+                            style={{
+                              fontSize: 12,
+                              fontWeight: 500,
+                              color: "#A32D2D",
+                            }}
+                          >
+                            {formatPrice(amount)}
+                          </span>
+                        </div>
+                      ),
+                    )}
+                  </div>
+                </>
+              )}
+
+              {/* Ventas por categoria */}
               <div style={s.divider} />
-              <p style={s.sectionLabel}>Por categoría</p>
+              <p style={s.sectionLabel}>Ventas por categoría</p>
               <div
                 style={{
                   display: "flex",
@@ -557,7 +715,7 @@ export default function Reportes() {
                 ))}
               </div>
 
-              {/* Ranking productos — barras */}
+              {/* Ranking productos */}
               <div style={s.divider} />
               <p style={s.sectionLabel}>Ranking de productos</p>
               <div
@@ -612,7 +770,7 @@ export default function Reportes() {
                 ))}
               </div>
 
-              {/* Tabla resumen */}
+              {/* Tabla completa */}
               <div style={s.divider} />
               <p style={s.sectionLabel}>Tabla completa</p>
               <div style={s.tabla}>
@@ -909,6 +1067,28 @@ const s = {
     backgroundColor: "#F1EFE8",
     borderRadius: 8,
     padding: "12px 14px",
+  },
+  finGrid: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap: 8,
+    marginBottom: 10,
+  },
+  finCard: {
+    backgroundColor: "#FFF",
+    border: "0.5px solid #DDDDCC",
+    borderLeft: "3px solid",
+    borderRadius: 8,
+    padding: "10px 12px",
+  },
+  utilCard: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    border: "1.5px solid",
+    borderRadius: 10,
+    padding: "12px 14px",
+    marginBottom: 12,
   },
   catRow: {
     display: "flex",
