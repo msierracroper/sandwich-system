@@ -11,6 +11,7 @@ import Productos from "./pages/admin/Productos";
 import Mesas from "./pages/admin/Mesas";
 import Usuarios from "./pages/admin/Usuarios";
 import Reportes from "./pages/admin/Reportes";
+import Gastos from "./pages/admin/Gastos";
 
 export default function App() {
   return (
@@ -61,6 +62,15 @@ export default function App() {
             element={
               <PrivateRoute roles={["admin"]}>
                 <Reportes />
+              </PrivateRoute>
+            }
+          />
+
+          <Route
+            path="/admin/gastos"
+            element={
+              <PrivateRoute roles={["admin"]}>
+                <Gastos />
               </PrivateRoute>
             }
           />

@@ -78,6 +78,12 @@ export default function AdminHome() {
       desc: "Ver resumen del dia y exportar",
       path: "/admin/reportes",
     },
+    {
+      icon: "💸",
+      title: "Gastos",
+      desc: "Registrar y controlar gastos del negocio",
+      path: "/admin/gastos",
+    },
   ];
 
   const today = new Date().toLocaleDateString("es-CO", {
