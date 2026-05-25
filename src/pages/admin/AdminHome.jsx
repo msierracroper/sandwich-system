@@ -85,10 +85,10 @@ export default function AdminHome() {
       path: "/admin/gastos",
     },
     {
-      icon: "💸",
+      icon: "🛍️",
       title: "pedidos",
       desc: "Registrar y controlar gastos del negocio",
-      path: "/admin/gastos",
+      path: "/admin/pedidos",
     },
   ];
 
