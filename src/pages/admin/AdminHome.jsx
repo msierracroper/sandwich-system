@@ -84,6 +84,12 @@ export default function AdminHome() {
       desc: "Registrar y controlar gastos del negocio",
       path: "/admin/gastos",
     },
+    {
+      icon: "💸",
+      title: "pedidos",
+      desc: "Registrar y controlar gastos del negocio",
+      path: "/admin/gastos",
+    },
   ];
 
   const today = new Date().toLocaleDateString("es-CO", {
