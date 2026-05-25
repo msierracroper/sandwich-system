@@ -16,6 +16,13 @@ const PREP_LABEL = {
   listo: { label: "Listo", color: "#3B6D11" },
 };
 
+const CATEGORIAS = [
+  { value: "todos", label: "Todos" },
+  { value: "sandwich", label: "Sandwiches" },
+  { value: "granizado", label: "Granizados" },
+  { value: "adicion", label: "Adiciones" },
+];
+
 export default function PedidoActivo() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -29,6 +36,12 @@ export default function PedidoActivo() {
   const [editMode, setEditMode] = useState(false);
   const [editQtys, setEditQtys] = useState({});
   const [savingEdit, setSavingEdit] = useState(false);
+
+  // Para agregar nuevos productos
+  const [products, setProducts] = useState([]);
+  const [catFilter, setCatFilter] = useState("todos");
+  const [newItems, setNewItems] = useState({}); // { productId: qty }
+  const [showAddProducts, setShowAddProducts] = useState(false);
 
   useEffect(() => {
     loadOrder();
@@ -61,6 +74,16 @@ export default function PedidoActivo() {
     setLoading(false);
   }
 
+  async function loadProducts() {
+    const { data } = await supabase
+      .from("products")
+      .select("*")
+      .eq("active", true)
+      .order("category")
+      .order("name");
+    setProducts(data ?? []);
+  }
+
   function formatPrice(n) {
     return "$" + (n ?? 0).toLocaleString("es-CO");
   }
@@ -76,20 +99,43 @@ export default function PedidoActivo() {
       qtys[item.id] = item.quantity;
     });
     setEditQtys(qtys);
+    setNewItems({});
+    setShowAddProducts(false);
+    loadProducts();
     setEditMode(true);
   }
 
   function cancelEdit() {
     setEditMode(false);
     setEditQtys({});
+    setNewItems({});
+    setShowAddProducts(false);
   }
+
+  function filteredProducts() {
+    if (catFilter === "todos") return products;
+    return products.filter((p) => p.category === catFilter);
+  }
+
+  // Total edicion = items existentes + items nuevos
+  const editTotal =
+    Object.entries(editQtys).reduce((acc, [itemId, qty]) => {
+      const item = items.find((i) => i.id === itemId);
+      return acc + (item?.unit_price ?? 0) * qty;
+    }, 0) +
+    Object.entries(newItems).reduce((acc, [productId, qty]) => {
+      const p = products.find((p) => p.id === productId);
+      return acc + (p?.price ?? 0) * qty;
+    }, 0);
 
   async function saveEdit() {
     setSavingEdit(true);
     const toUpdate = Object.entries(editQtys).filter(([, qty]) => qty > 0);
     const toDelete = Object.entries(editQtys).filter(([, qty]) => qty === 0);
+    const toInsert = Object.entries(newItems).filter(([, qty]) => qty > 0);
 
     try {
+      // Actualizar cantidades existentes
       await Promise.all(
         toUpdate.map(([itemId, qty]) =>
           supabase
@@ -98,20 +144,37 @@ export default function PedidoActivo() {
             .eq("id", itemId),
         ),
       );
+
+      // Eliminar items con cantidad 0
       await Promise.all(
         toDelete.map(([itemId]) =>
           supabase.from("order_items").delete().eq("id", itemId),
         ),
       );
 
-      const newTotal = toUpdate.reduce((acc, [itemId, qty]) => {
-        const item = items.find((i) => i.id === itemId);
-        return acc + (item?.unit_price ?? 0) * qty;
-      }, 0);
+      // Insertar nuevos items
+      if (toInsert.length > 0) {
+        const newOrderItems = toInsert.map(([productId, qty]) => {
+          const p = products.find((p) => p.id === productId);
+          return {
+            order_id: id,
+            product_id: productId,
+            quantity: qty,
+            unit_price: p?.price ?? 0,
+            station: p?.station ?? "caliente",
+            prep_status: "pendiente",
+          };
+        });
+        await supabase.from("order_items").insert(newOrderItems);
+      }
 
-      await supabase.from("orders").update({ total: newTotal }).eq("id", id);
+      // Recalcular total
+      await supabase.from("orders").update({ total: editTotal }).eq("id", id);
+
       setEditMode(false);
       setEditQtys({});
+      setNewItems({});
+      setShowAddProducts(false);
       await loadOrder();
     } catch (e) {
       alert("Error al guardar cambios");
@@ -161,11 +224,9 @@ export default function PedidoActivo() {
         ? "Para llevar"
         : "Domicilio";
   const canEdit = order.status !== "cerrado";
-
-  const editTotal = Object.entries(editQtys).reduce((acc, [itemId, qty]) => {
-    const item = items.find((i) => i.id === itemId);
-    return acc + (item?.unit_price ?? 0) * qty;
-  }, 0);
+  const hasChanges =
+    Object.values(editQtys).some((q, i) => q !== items[i]?.quantity) ||
+    Object.values(newItems).some((q) => q > 0);
 
   return (
     <div style={s.page}>
@@ -213,13 +274,15 @@ export default function PedidoActivo() {
       </div>
 
       <div style={s.body}>
-        {/* MODO EDICION */}
+        {/* ── MODO EDICION ── */}
         {editMode ? (
           <div style={s.editBox}>
             <p style={s.editTitle}>Editando pedido</p>
             <p style={s.editSub}>
-              Ajusta cantidades · Pon 0 para eliminar un ítem
+              Ajusta cantidades · Pon 0 para eliminar · Agrega productos nuevos
             </p>
+
+            {/* Items existentes */}
             {items.map((item) => {
               const qty = editQtys[item.id] ?? item.quantity;
               return (
@@ -280,6 +343,145 @@ export default function PedidoActivo() {
                 </div>
               );
             })}
+
+            {/* Items nuevos agregados */}
+            {Object.entries(newItems)
+              .filter(([, qty]) => qty > 0)
+              .map(([productId, qty]) => {
+                const p = products.find((p) => p.id === productId);
+                if (!p) return null;
+                return (
+                  <div
+                    key={productId}
+                    style={{
+                      ...s.itemRow,
+                      backgroundColor: "#EAF3DE",
+                      borderRadius: 6,
+                      padding: "8px 6px",
+                    }}
+                  >
+                    <div style={s.itemLeft}>
+                      <p style={{ ...s.itemName, color: "#3B6D11" }}>
+                        + {p.name}
+                      </p>
+                      <p style={s.itemNote}>
+                        {formatPrice(p.price)} c/u · nuevo
+                      </p>
+                    </div>
+                    <div style={s.qtyCtrl}>
+                      <button
+                        style={s.qtyBtn}
+                        onClick={() =>
+                          setNewItems((prev) => ({
+                            ...prev,
+                            [productId]: Math.max(
+                              0,
+                              (prev[productId] ?? 0) - 1,
+                            ),
+                          }))
+                        }
+                      >
+                        −
+                      </button>
+                      <span style={s.qtyNum}>{qty}</span>
+                      <button
+                        style={s.qtyBtn}
+                        onClick={() =>
+                          setNewItems((prev) => ({
+                            ...prev,
+                            [productId]: (prev[productId] ?? 0) + 1,
+                          }))
+                        }
+                      >
+                        +
+                      </button>
+                    </div>
+                    <p
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 500,
+                        color: "#3B6D11",
+                        minWidth: 72,
+                        textAlign: "right",
+                      }}
+                    >
+                      {formatPrice(p.price * qty)}
+                    </p>
+                  </div>
+                );
+              })}
+
+            {/* Boton agregar productos */}
+            <button
+              style={{ ...s.addProdBtn, marginTop: 8 }}
+              onClick={() => setShowAddProducts(!showAddProducts)}
+            >
+              {showAddProducts
+                ? "▲ Ocultar productos"
+                : "+ Agregar producto al pedido"}
+            </button>
+
+            {/* Selector de productos */}
+            {showAddProducts && (
+              <div style={s.addProdBox}>
+                <div style={s.catTabs}>
+                  {CATEGORIAS.map((cat) => (
+                    <button
+                      key={cat.value}
+                      style={{
+                        ...s.catTab,
+                        backgroundColor:
+                          catFilter === cat.value ? "#E6F1FB" : "#FFF",
+                        borderColor:
+                          catFilter === cat.value ? "#378ADD" : "#DDDDCC",
+                        color: catFilter === cat.value ? "#185FA5" : "#666660",
+                        fontWeight: catFilter === cat.value ? 600 : 400,
+                      }}
+                      onClick={() => setCatFilter(cat.value)}
+                    >
+                      {cat.label}
+                    </button>
+                  ))}
+                </div>
+                {filteredProducts().map((p) => {
+                  const qty = newItems[p.id] ?? 0;
+                  return (
+                    <div key={p.id} style={s.prodRow}>
+                      <div style={s.itemLeft}>
+                        <p style={s.itemName}>{p.name}</p>
+                        <p style={s.itemNote}>{formatPrice(p.price)}</p>
+                      </div>
+                      <div style={s.qtyCtrl}>
+                        <button
+                          style={s.qtyBtn}
+                          onClick={() =>
+                            setNewItems((prev) => ({
+                              ...prev,
+                              [p.id]: Math.max(0, (prev[p.id] ?? 0) - 1),
+                            }))
+                          }
+                        >
+                          −
+                        </button>
+                        <span style={s.qtyNum}>{qty}</span>
+                        <button
+                          style={s.qtyBtn}
+                          onClick={() =>
+                            setNewItems((prev) => ({
+                              ...prev,
+                              [p.id]: (prev[p.id] ?? 0) + 1,
+                            }))
+                          }
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
             <div style={s.divider} />
             <div style={s.totalRow}>
               <span>Nuevo total</span>
@@ -306,7 +508,7 @@ export default function PedidoActivo() {
           </div>
         ) : (
           <>
-            {/* VISTA NORMAL */}
+            {/* ── VISTA NORMAL ── */}
             <div style={s.resumenBox}>
               {items.map((item) => {
                 const prepInfo =
@@ -643,5 +845,41 @@ const s = {
     fontSize: 13,
     fontFamily: "sans-serif",
     cursor: "pointer",
+  },
+  addProdBtn: {
+    width: "100%",
+    padding: "8px 12px",
+    backgroundColor: "#E6F1FB",
+    color: "#185FA5",
+    border: "0.5px solid #B5D4F4",
+    borderRadius: 8,
+    fontSize: 12,
+    fontWeight: 500,
+    cursor: "pointer",
+    fontFamily: "sans-serif",
+  },
+  addProdBox: {
+    backgroundColor: "#FAFAF8",
+    border: "0.5px solid #DDDDCC",
+    borderRadius: 8,
+    padding: "10px",
+    marginTop: 8,
+  },
+  catTabs: { display: "flex", gap: 4, marginBottom: 10, overflowX: "auto" },
+  catTab: {
+    border: "0.5px solid",
+    borderRadius: 20,
+    padding: "4px 10px",
+    fontSize: 11,
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+    fontFamily: "sans-serif",
+  },
+  prodRow: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: "7px 4px",
+    borderBottom: "0.5px solid #DDDDCC",
   },
 };
