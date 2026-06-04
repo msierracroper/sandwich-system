@@ -458,7 +458,13 @@ const s = {
     flexShrink: 0,
   },
   itemName: { fontSize: 12, fontWeight: 500, color: "#1A1A1A", margin: 0 },
-  itemNote: { fontSize: 11, color: "#888880", margin: 0, fontStyle: "italic" },
+  itemNote: {
+    fontSize: 12,
+    color: "#A32D2D",
+    margin: 0,
+    fontStyle: "italic",
+    fontWeight: 500,
+  },
   ticketBtn: {
     width: "100%",
     padding: "7px",

@@ -868,7 +868,13 @@ const s = {
     color: "#1A1A1A",
     margin: "0 0 2px",
   },
-  itemNote: { fontSize: 11, color: "#888880", margin: 0, fontStyle: "italic" },
+  itemNote: {
+    fontSize: 12,
+    color: "#A32D2D",
+    margin: 0,
+    fontStyle: "italic",
+    fontWeight: 500,
+  },
   itemRight: { textAlign: "right" },
   itemPrice: {
     fontSize: 13,
