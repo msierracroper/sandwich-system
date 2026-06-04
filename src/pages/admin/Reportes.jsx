@@ -19,6 +19,8 @@ export default function Reportes() {
   const [closing, setClosing] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [dayAlreadyClosed, setDayAlreadyClosed] = useState(false);
+  const [fechaDesde, setFechaDesde] = useState("");
+  const [fechaHasta, setFechaHasta] = useState("");
 
   async function loadToday() {
     setLoading(true);
@@ -75,18 +77,28 @@ export default function Reportes() {
 
   async function loadHistory() {
     const today = new Date();
-    let from;
+    let from, to;
+
     if (histTab === "semana") {
       from = new Date(today);
       from.setDate(today.getDate() - 7);
-    } else {
+      to = today;
+    } else if (histTab === "mes") {
       from = new Date(today);
       from.setDate(1);
+      to = today;
+    } else {
+      // personalizado
+      if (!fechaDesde || !fechaHasta) return;
+      from = new Date(fechaDesde);
+      to = new Date(fechaHasta);
     }
+
     const { data } = await supabase
       .from("daily_summaries")
       .select("*")
       .gte("date", from.toISOString().split("T")[0])
+      .lte("date", to.toISOString().split("T")[0])
       .order("date", { ascending: false });
     setHistory(data ?? []);
   }
@@ -190,10 +202,12 @@ export default function Reportes() {
   useEffect(() => {
     loadToday();
   }, []);
+
   // eslint-disable-next-line
   useEffect(() => {
     if (tab === "historico") loadHistory();
-  }, [tab, histTab]);
+  }, [tab, histTab, fechaDesde, fechaHasta]);
+
   // eslint-disable-next-line
   useEffect(() => {
     if (tab === "estadisticas") loadEstadisticas();
@@ -308,6 +322,40 @@ export default function Reportes() {
           </button>
         ))}
       </div>
+      {/* Selector de fechas — solo cuando es personalizado */}
+      {histTab === "personalizado" && (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: 8,
+            marginBottom: 12,
+          }}
+        >
+          <div>
+            <p style={{ fontSize: 11, color: "#666660", margin: "0 0 4px" }}>
+              Desde
+            </p>
+            <input
+              type="date"
+              style={s.dateInput}
+              value={fechaDesde}
+              onChange={(e) => setFechaDesde(e.target.value)}
+            />
+          </div>
+          <div>
+            <p style={{ fontSize: 11, color: "#666660", margin: "0 0 4px" }}>
+              Hasta
+            </p>
+            <input
+              type="date"
+              style={s.dateInput}
+              value={fechaHasta}
+              onChange={(e) => setFechaHasta(e.target.value)}
+            />
+          </div>
+        </div>
+      )}
 
       {/* ── TAB HOY ── */}
       {tab === "hoy" && (
@@ -453,6 +501,7 @@ export default function Reportes() {
             {[
               ["semana", "Semana"],
               ["mes", "Mes"],
+              ["personalizado", "Personalizado"],
             ].map(([val, lbl]) => (
               <button
                 key={val}
@@ -1234,5 +1283,15 @@ const s = {
     fontSize: 13,
     fontFamily: "sans-serif",
     cursor: "pointer",
+  },
+  dateInput: {
+    width: "100%",
+    border: "0.5px solid #B0AFA5",
+    borderRadius: 8,
+    padding: "8px 10px",
+    fontSize: 13,
+    color: "#1A1A1A",
+    fontFamily: "sans-serif",
+    boxSizing: "border-box",
   },
 };
