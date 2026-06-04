@@ -457,7 +457,7 @@ const s = {
     color: "#666660",
     flexShrink: 0,
   },
-  itemName: { fontSize: 12, fontWeight: 500, color: "#1A1A1A", margin: 0 },
+  itemName: { fontSize: 13, fontWeight: 700, color: "#1A1A1A", margin: 0 },
   itemNote: {
     fontSize: 12,
     color: "#A32D2D",
