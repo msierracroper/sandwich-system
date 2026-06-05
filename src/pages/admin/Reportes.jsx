@@ -21,6 +21,8 @@ export default function Reportes() {
   const [dayAlreadyClosed, setDayAlreadyClosed] = useState(false);
   const [fechaDesde, setFechaDesde] = useState("");
   const [fechaHasta, setFechaHasta] = useState("");
+  const [statsDesde, setStatsDesde] = useState("");
+  const [statsHasta, setStatsHasta] = useState("");
 
   async function loadToday() {
     setLoading(true);
@@ -106,21 +108,31 @@ export default function Reportes() {
   async function loadEstadisticas() {
     setLoadingStats(true);
     const today = new Date();
-    let from;
+    let from, fromStr, toStr;
+
     if (statsTab === "semana") {
       from = new Date(today);
       from.setDate(today.getDate() - 7);
-    } else {
+      fromStr = from.toLocaleDateString("en-CA", {
+        timeZone: "America/Bogota",
+      });
+      toStr = today.toLocaleDateString("en-CA", { timeZone: "America/Bogota" });
+    } else if (statsTab === "mes") {
       from = new Date(today);
       from.setDate(1);
+      fromStr = from.toLocaleDateString("en-CA", {
+        timeZone: "America/Bogota",
+      });
+      toStr = today.toLocaleDateString("en-CA", { timeZone: "America/Bogota" });
+    } else {
+      // personalizado
+      if (!statsDesde || !statsHasta) {
+        setLoadingStats(false);
+        return;
+      }
+      fromStr = statsDesde;
+      toStr = statsHasta;
     }
-
-    const fromStr = from.toLocaleDateString("en-CA", {
-      timeZone: "America/Bogota",
-    });
-    const toStr = today.toLocaleDateString("en-CA", {
-      timeZone: "America/Bogota",
-    });
 
     // Cargar items y gastos en paralelo
     const [{ data: itemsData }, { data: expensesData }] = await Promise.all([
@@ -200,18 +212,21 @@ export default function Reportes() {
 
   // eslint-disable-next-line
   useEffect(() => {
+    // eslint-disable-next-line
     loadToday();
   }, []);
 
   // eslint-disable-next-line
   useEffect(() => {
+    // eslint-disable-next-line
     if (tab === "historico") loadHistory();
   }, [tab, histTab, fechaDesde, fechaHasta]);
 
   // eslint-disable-next-line
   useEffect(() => {
+    // eslint-disable-next-line
     if (tab === "estadisticas") loadEstadisticas();
-  }, [tab, statsTab]);
+  }, [tab, statsTab, statsDesde, statsHasta]);
 
   async function cerrarDia() {
     setClosing(true);
@@ -561,6 +576,7 @@ export default function Reportes() {
             {[
               ["semana", "Esta semana"],
               ["mes", "Este mes"],
+              ["personalizado", "Personalizado"],
             ].map(([val, lbl]) => (
               <button
                 key={val}
@@ -577,6 +593,44 @@ export default function Reportes() {
               </button>
             ))}
           </div>
+
+          {statsTab === "personalizado" && (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 8,
+                marginBottom: 12,
+              }}
+            >
+              <div>
+                <p
+                  style={{ fontSize: 11, color: "#666660", margin: "0 0 4px" }}
+                >
+                  Desde
+                </p>
+                <input
+                  type="date"
+                  style={s.dateInput}
+                  value={statsDesde}
+                  onChange={(e) => setStatsDesde(e.target.value)}
+                />
+              </div>
+              <div>
+                <p
+                  style={{ fontSize: 11, color: "#666660", margin: "0 0 4px" }}
+                >
+                  Hasta
+                </p>
+                <input
+                  type="date"
+                  style={s.dateInput}
+                  value={statsHasta}
+                  onChange={(e) => setStatsHasta(e.target.value)}
+                />
+              </div>
+            </div>
+          )}
 
           {loadingStats ? (
             <p style={s.loadTxt}>Calculando estadísticas...</p>
