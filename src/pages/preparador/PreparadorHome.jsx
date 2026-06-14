@@ -99,8 +99,8 @@ function TicketCard({ ticket, onUpdate }) {
           <span
             style={{
               color: ticket.type === "mesa" ? "#185FA5" : "#444441",
-              fontSize: 10,
-              fontWeight: 500,
+              fontSize: 13,
+              fontWeight: 700,
             }}
           >
             {ticket.tableName ??
@@ -418,7 +418,7 @@ const s = {
   },
   stationCount: {
     fontSize: 11,
-    fontWeight: 500,
+    fontWeight: 600,
     padding: "2px 10px",
     borderRadius: 20,
   },
@@ -437,9 +437,9 @@ const s = {
     padding: "10px 12px",
   },
   ticketTop: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 },
-  ticketId: { fontSize: 13, fontWeight: 600 },
+  ticketId: { fontSize: 12, fontWeight: 600 },
   mesaPill: { padding: "2px 8px", borderRadius: 20 },
-  ticketTime: { fontSize: 10, color: "#888880", marginLeft: "auto" },
+  ticketTime: { fontSize: 12, color: "#888880", marginLeft: "auto" },
   ticketItems: {
     display: "flex",
     flexDirection: "column",
@@ -452,18 +452,18 @@ const s = {
     border: "0.5px solid #DDDDCC",
     borderRadius: 4,
     padding: "1px 6px",
-    fontSize: 10,
-    fontWeight: 500,
-    color: "#666660",
+    fontSize: 18,
+    fontWeight: 700,
+    color: "#242121",
     flexShrink: 0,
   },
-  itemName: { fontSize: 13, fontWeight: 700, color: "#1A1A1A", margin: 0 },
+  itemName: { fontSize: 14, fontWeight: 700, color: "#1A1A1A", margin: 0 },
   itemNote: {
-    fontSize: 12,
+    fontSize: 13,
     color: "#A32D2D",
     margin: 0,
     fontStyle: "italic",
-    fontWeight: 500,
+    fontWeight: 600,
   },
   ticketBtn: {
     width: "100%",
@@ -480,9 +480,9 @@ const s = {
     padding: 24,
     textAlign: "center",
   },
-  emptyTxt: { fontSize: 12, color: "#888880", margin: 0 },
+  emptyTxt: { fontSize: 14, color: "#888880", margin: 0 },
   timerBox: {
-    fontSize: 11,
+    fontSize: 1,
     color: "#854F0B",
     backgroundColor: "#FAEEDA",
     borderRadius: 6,
