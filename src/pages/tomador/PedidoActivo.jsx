@@ -32,6 +32,7 @@ export default function PedidoActivo() {
   const [loading, setLoading] = useState(true);
   const [method, setMethod] = useState("efectivo");
   const [cashReceived, setCashReceived] = useState("");
+  const [mixedCash, setMixedCash] = useState("");
   const [saving, setSaving] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [editQtys, setEditQtys] = useState({});
@@ -93,6 +94,14 @@ export default function PedidoActivo() {
   function vuelto() {
     const received = parseInt(cashReceived.replace(/\D/g, "")) || 0;
     return received - (order?.total ?? 0);
+  }
+
+  function mixedCashNum() {
+    return parseInt(mixedCash.replace(/\D/g, "")) || 0;
+  }
+
+  function mixedTransferNum() {
+    return Math.max((order?.total ?? 0) - mixedCashNum(), 0);
   }
 
   function openEdit() {
@@ -203,6 +212,8 @@ export default function PedidoActivo() {
         status: "cerrado",
         payment_method: method,
         cash_received: method === "efectivo" ? received : null,
+        cash_amount: method === "mixto" ? mixedCashNum() : null,
+        transfer_amount: method === "mixto" ? mixedTransferNum() : null,
         closed_at: new Date().toISOString(),
       })
       .eq("id", id);
@@ -609,7 +620,9 @@ export default function PedidoActivo() {
                     <span style={s.noteLabel}>Medio de pago: </span>
                     {order.payment_method === "efectivo"
                       ? "Efectivo"
-                      : "Transferencia"}
+                      : order.payment_method === "mixto"
+                        ? "Mixto"
+                        : "Transferencia"}
                   </p>
                 )}
               </div>
@@ -626,6 +639,12 @@ export default function PedidoActivo() {
                     {formatPrice(order.cash_received - order.total)}
                   </p>
                 )}
+                {order.payment_method === "mixto" && (
+                  <p style={s.closedSub}>
+                    Efectivo: {formatPrice(order.cash_amount)} ·
+                    Transferencia: {formatPrice(order.transfer_amount)}
+                  </p>
+                )}
               </div>
             )}
 
@@ -634,7 +653,7 @@ export default function PedidoActivo() {
                 <div style={s.divider} />
                 <p style={s.sectionLabel}>Forma de pago</p>
                 <div style={s.methodRow}>
-                  {["efectivo", "transferencia"].map((m) => (
+                  {["efectivo", "transferencia", "mixto"].map((m) => (
                     <button
                       key={m}
                       style={{
@@ -646,7 +665,11 @@ export default function PedidoActivo() {
                       }}
                       onClick={() => setMethod(m)}
                     >
-                      {m === "efectivo" ? "$ Efectivo" : "⇄ Transferencia"}
+                      {m === "efectivo"
+                        ? "$ Efectivo"
+                        : m === "transferencia"
+                          ? "⇄ Transferencia"
+                          : "◐ Mixto"}
                     </button>
                   ))}
                 </div>
@@ -681,13 +704,46 @@ export default function PedidoActivo() {
                   </>
                 )}
 
+                {method === "mixto" && (
+                  <>
+                    <input
+                      style={s.cashInput}
+                      placeholder="Monto en efectivo: $0"
+                      value={mixedCash}
+                      onChange={(e) => setMixedCash(e.target.value)}
+                      type="number"
+                    />
+                    {mixedCashNum() > order.total ? (
+                      <div
+                        style={{ ...s.vueltoBox, backgroundColor: "#FCEBEB" }}
+                      >
+                        <span style={{ ...s.vueltoLabel, color: "#A32D2D" }}>
+                          El efectivo supera el total
+                        </span>
+                      </div>
+                    ) : (
+                      <div style={s.vueltoBox}>
+                        <span style={s.vueltoLabel}>Transferencia</span>
+                        <span style={s.vueltoVal}>
+                          {formatPrice(mixedTransferNum())}
+                        </span>
+                      </div>
+                    )}
+                  </>
+                )}
+
                 <button
                   style={{
                     ...s.btnPrimary,
                     opacity: saving ? 0.7 : 1,
                     cursor: saving ? "not-allowed" : "pointer",
                   }}
-                  disabled={saving || (method === "efectivo" && vuelto() < 0)}
+                  disabled={
+                    saving ||
+                    (method === "efectivo" && vuelto() < 0) ||
+                    (method === "mixto" &&
+                      (mixedCash === "" || mixedCashNum() > order.total))
+                  }
                   onClick={registrarPago}
                 >
                   {saving ? "Registrando..." : "Registrar pago y cerrar"}
@@ -877,7 +933,7 @@ const s = {
   },
   methodRow: {
     display: "grid",
-    gridTemplateColumns: "1fr 1fr",
+    gridTemplateColumns: "1fr 1fr 1fr",
     gap: 8,
     marginBottom: 12,
   },

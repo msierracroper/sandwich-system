@@ -49,12 +49,16 @@ export default function Reportes() {
     const data = ordersData ?? [];
     setOrders(data);
     const total = data.reduce((a, o) => a + (o.total ?? 0), 0);
-    const cash = data
-      .filter((o) => o.payment_method === "efectivo")
-      .reduce((a, o) => a + (o.total ?? 0), 0);
-    const transfer = data
-      .filter((o) => o.payment_method === "transferencia")
-      .reduce((a, o) => a + (o.total ?? 0), 0);
+    const cash = data.reduce((a, o) => {
+      if (o.payment_method === "efectivo") return a + (o.total ?? 0);
+      if (o.payment_method === "mixto") return a + (o.cash_amount ?? 0);
+      return a;
+    }, 0);
+    const transfer = data.reduce((a, o) => {
+      if (o.payment_method === "transferencia") return a + (o.total ?? 0);
+      if (o.payment_method === "mixto") return a + (o.transfer_amount ?? 0);
+      return a;
+    }, 0);
     setStats({
       total,
       orders: data.length,
@@ -480,8 +484,10 @@ export default function Reportes() {
                             · #{order.id.slice(-4).toUpperCase()}
                           </p>
                           <p style={s.orderMeta}>
-                            {order.payment_method} ·{" "}
-                            {order.order_items?.length ?? 0} items
+                            {order.payment_method === "mixto"
+                              ? `mixto (efvo ${formatPrice(order.cash_amount)} / transf ${formatPrice(order.transfer_amount)})`
+                              : order.payment_method}{" "}
+                            · {order.order_items?.length ?? 0} items
                           </p>
                         </div>
                         <p style={s.orderTotal}>{formatPrice(order.total)}</p>
