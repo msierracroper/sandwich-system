@@ -67,6 +67,18 @@ function TicketCard({ ticket, onUpdate }) {
             .eq("id", item.id),
         ),
       );
+      // Si ya no quedan items pendientes en ninguna estacion, el pedido pasa a listo
+      const { data: allItems } = await supabase
+        .from("order_items")
+        .select("prep_status")
+        .eq("order_id", ticket.orderId);
+      const allReady = allItems?.every((i) => i.prep_status === "listo");
+      if (allReady) {
+        await supabase
+          .from("orders")
+          .update({ status: "listo" })
+          .eq("id", ticket.orderId);
+      }
     }
     setSaving(false);
     onUpdate();

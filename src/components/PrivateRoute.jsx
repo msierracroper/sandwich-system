@@ -17,9 +17,10 @@ export function PrivateRoute({ children, roles }) {
   if (roles && profile && !roles.includes(profile.role)) {
     // Redirige al home correcto según su rol
     const homeByRole = {
-      admin:      '/admin',
-      tomador:    '/tomador',
-      preparador: '/preparador',
+      admin:        '/admin',
+      tomador:      '/tomador',
+      preparador:   '/preparador',
+      domiciliario: '/domiciliario',
     }
     return <Navigate to={homeByRole[profile.role] ?? '/login'} replace />
   }

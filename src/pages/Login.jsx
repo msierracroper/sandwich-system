@@ -16,9 +16,10 @@ const [loading, setLoading]           = useState(false)
   // Cuando el perfil cargue despues del login, redirige al rol correcto
   useEffect(() => {
     if (!profile) return
-    if (profile.role === 'admin')           navigate('/admin',      { replace: true })
-    else if (profile.role === 'tomador')    navigate('/tomador',    { replace: true })
-    else if (profile.role === 'preparador') navigate('/preparador', { replace: true })
+    if (profile.role === 'admin')             navigate('/admin',        { replace: true })
+    else if (profile.role === 'tomador')      navigate('/tomador',      { replace: true })
+    else if (profile.role === 'preparador')   navigate('/preparador',   { replace: true })
+    else if (profile.role === 'domiciliario') navigate('/domiciliario', { replace: true })
   }, [profile])
 
   async function handleLogin(e) {

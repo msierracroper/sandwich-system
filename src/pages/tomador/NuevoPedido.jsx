@@ -11,6 +11,11 @@ const TIPOS = [
   { value: "domicilio", label: "Domicilio" },
 ];
 
+const PAYMENT_METHODS = [
+  { value: "efectivo", label: "Efectivo" },
+  { value: "transferencia", label: "Transferencia" },
+];
+
 const CATEGORIAS = [
   { value: "sandwich", label: "Sandwiches" },
   { value: "granizado", label: "Granizados" },
@@ -30,6 +35,10 @@ export default function NuevoPedido() {
   const [items, setItems] = useState({}); // { productId: quantity }
   const [notes, setNotes] = useState({}); // { productId: note }
   const [pedidoNote, setPedidoNote] = useState("");
+  const [address, setAddress] = useState("");
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("efectivo");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [step, setStep] = useState("items"); // 'items' | 'resumen'
@@ -104,6 +113,10 @@ export default function NuevoPedido() {
         status: "abierto",
         total: totalPrice(),
         note: pedidoNote || null,
+        address: tipo === "domicilio" ? address || null : null,
+        customer_name: tipo === "domicilio" ? customerName || null : null,
+        customer_phone: tipo === "domicilio" ? customerPhone || null : null,
+        payment_method: tipo === "domicilio" ? paymentMethod : null,
       })
       .select()
       .single();
@@ -264,6 +277,51 @@ export default function NuevoPedido() {
             rows={2}
           />
 
+          {/* Datos de domicilio — solo domicilio */}
+          {tipo === "domicilio" && (
+            <>
+              <input
+                style={s.textarea}
+                placeholder="Direccion de entrega..."
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+              />
+              <input
+                style={s.textarea}
+                placeholder="Nombre del cliente..."
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+              />
+              <input
+                style={s.textarea}
+                placeholder="Telefono del cliente..."
+                type="tel"
+                value={customerPhone}
+                onChange={(e) => setCustomerPhone(e.target.value)}
+              />
+              <p style={s.sectionLabel}>Medio de pago</p>
+              <div style={s.catRow}>
+                {PAYMENT_METHODS.map((m) => (
+                  <button
+                    key={m.value}
+                    style={{
+                      ...s.catBtn,
+                      backgroundColor:
+                        paymentMethod === m.value ? "#E6F1FB" : "#FFF",
+                      borderColor:
+                        paymentMethod === m.value ? "#378ADD" : "#DDDDCC",
+                      color: paymentMethod === m.value ? "#185FA5" : "#666660",
+                      fontWeight: paymentMethod === m.value ? 600 : 400,
+                    }}
+                    onClick={() => setPaymentMethod(m.value)}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+
           <button
             style={{
               ...s.btnPrimary,
@@ -364,6 +422,33 @@ export default function NuevoPedido() {
               </div>
             )}
         </div>
+
+        {tipo === "domicilio" && (
+          <div style={{ ...s.noteBox, marginBottom: 12 }}>
+            {address && (
+              <p style={{ margin: "0 0 4px" }}>
+                <span style={s.noteLabel}>Direccion: </span>
+                {address}
+              </p>
+            )}
+            {customerName && (
+              <p style={{ margin: "0 0 4px" }}>
+                <span style={s.noteLabel}>Cliente: </span>
+                {customerName}
+              </p>
+            )}
+            {customerPhone && (
+              <p style={{ margin: "0 0 4px" }}>
+                <span style={s.noteLabel}>Telefono: </span>
+                {customerPhone}
+              </p>
+            )}
+            <p style={{ margin: 0 }}>
+              <span style={s.noteLabel}>Medio de pago: </span>
+              {paymentMethod === "efectivo" ? "Efectivo" : "Transferencia"}
+            </p>
+          </div>
+        )}
 
         <button
           style={{
@@ -570,6 +655,15 @@ const s = {
     color: "#1A1A1A",
     padding: "4px 0",
   },
+  noteBox: {
+    fontSize: 12,
+    color: "#666660",
+    backgroundColor: "#F1EFE8",
+    borderRadius: 6,
+    padding: "8px 10px",
+    fontStyle: "italic",
+  },
+  noteLabel: { fontWeight: 500, fontStyle: "normal" },
   badgeRow: { display: "flex", gap: 6, marginBottom: 12 },
   badge: {
     fontSize: 11,

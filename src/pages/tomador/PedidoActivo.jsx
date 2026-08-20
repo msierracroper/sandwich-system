@@ -35,12 +35,14 @@ export default function PedidoActivo() {
   const [saving, setSaving] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [editQtys, setEditQtys] = useState({});
+  const [editNotes, setEditNotes] = useState({});
   const [savingEdit, setSavingEdit] = useState(false);
 
   // Para agregar nuevos productos
   const [products, setProducts] = useState([]);
   const [catFilter, setCatFilter] = useState("todos");
   const [newItems, setNewItems] = useState({}); // { productId: qty }
+  const [newItemNotes, setNewItemNotes] = useState({}); // { productId: note }
   const [showAddProducts, setShowAddProducts] = useState(false);
 
   useEffect(() => {
@@ -95,11 +97,15 @@ export default function PedidoActivo() {
 
   function openEdit() {
     const qtys = {};
+    const notes = {};
     items.forEach((item) => {
       qtys[item.id] = item.quantity;
+      notes[item.id] = item.note ?? "";
     });
     setEditQtys(qtys);
+    setEditNotes(notes);
     setNewItems({});
+    setNewItemNotes({});
     setShowAddProducts(false);
     loadProducts();
     setEditMode(true);
@@ -108,7 +114,9 @@ export default function PedidoActivo() {
   function cancelEdit() {
     setEditMode(false);
     setEditQtys({});
+    setEditNotes({});
     setNewItems({});
+    setNewItemNotes({});
     setShowAddProducts(false);
   }
 
@@ -135,12 +143,12 @@ export default function PedidoActivo() {
     const toInsert = Object.entries(newItems).filter(([, qty]) => qty > 0);
 
     try {
-      // Actualizar cantidades existentes
+      // Actualizar cantidades y notas existentes
       await Promise.all(
         toUpdate.map(([itemId, qty]) =>
           supabase
             .from("order_items")
-            .update({ quantity: qty })
+            .update({ quantity: qty, note: editNotes[itemId] || null })
             .eq("id", itemId),
         ),
       );
@@ -163,6 +171,7 @@ export default function PedidoActivo() {
             unit_price: p?.price ?? 0,
             station: p?.station ?? "caliente",
             prep_status: "pendiente",
+            note: newItemNotes[productId] || null,
           };
         });
         await supabase.from("order_items").insert(newOrderItems);
@@ -173,7 +182,9 @@ export default function PedidoActivo() {
 
       setEditMode(false);
       setEditQtys({});
+      setEditNotes({});
       setNewItems({});
+      setNewItemNotes({});
       setShowAddProducts(false);
       await loadOrder();
     } catch (e) {
@@ -279,67 +290,82 @@ export default function PedidoActivo() {
           <div style={s.editBox}>
             <p style={s.editTitle}>Editando pedido</p>
             <p style={s.editSub}>
-              Ajusta cantidades · Pon 0 para eliminar · Agrega productos nuevos
+              Ajusta cantidades y notas · Pon 0 para eliminar · Agrega
+              productos nuevos
             </p>
 
             {/* Items existentes */}
             {items.map((item) => {
               const qty = editQtys[item.id] ?? item.quantity;
               return (
-                <div
-                  key={item.id}
-                  style={{ ...s.itemRow, opacity: qty === 0 ? 0.4 : 1 }}
-                >
-                  <div style={s.itemLeft}>
-                    <p style={s.itemName}>{item.products?.name}</p>
-                    <p style={s.itemNote}>{formatPrice(item.unit_price)} c/u</p>
-                  </div>
-                  <div style={s.qtyCtrl}>
-                    <button
-                      style={s.qtyBtn}
-                      onClick={() =>
-                        setEditQtys((prev) => ({
-                          ...prev,
-                          [item.id]: Math.max(
-                            0,
-                            (prev[item.id] ?? item.quantity) - 1,
-                          ),
-                        }))
-                      }
-                    >
-                      −
-                    </button>
-                    <span
+                <div key={item.id} style={{ opacity: qty === 0 ? 0.4 : 1 }}>
+                  <div style={s.itemRow}>
+                    <div style={s.itemLeft}>
+                      <p style={s.itemName}>{item.products?.name}</p>
+                      <p style={s.itemNote}>
+                        {formatPrice(item.unit_price)} c/u
+                      </p>
+                    </div>
+                    <div style={s.qtyCtrl}>
+                      <button
+                        style={s.qtyBtn}
+                        onClick={() =>
+                          setEditQtys((prev) => ({
+                            ...prev,
+                            [item.id]: Math.max(
+                              0,
+                              (prev[item.id] ?? item.quantity) - 1,
+                            ),
+                          }))
+                        }
+                      >
+                        −
+                      </button>
+                      <span
+                        style={{
+                          ...s.qtyNum,
+                          color: qty === 0 ? "#A32D2D" : "#1A1A1A",
+                        }}
+                      >
+                        {qty}
+                      </span>
+                      <button
+                        style={s.qtyBtn}
+                        onClick={() =>
+                          setEditQtys((prev) => ({
+                            ...prev,
+                            [item.id]: (prev[item.id] ?? item.quantity) + 1,
+                          }))
+                        }
+                      >
+                        +
+                      </button>
+                    </div>
+                    <p
                       style={{
-                        ...s.qtyNum,
-                        color: qty === 0 ? "#A32D2D" : "#1A1A1A",
+                        fontSize: 13,
+                        fontWeight: 500,
+                        color: "#1A1A1A",
+                        minWidth: 72,
+                        textAlign: "right",
                       }}
                     >
-                      {qty}
-                    </span>
-                    <button
-                      style={s.qtyBtn}
-                      onClick={() =>
-                        setEditQtys((prev) => ({
+                      {formatPrice(item.unit_price * qty)}
+                    </p>
+                  </div>
+                  {qty > 0 && (
+                    <input
+                      style={s.noteInput}
+                      placeholder={`Nota para ${item.products?.name} (ej: sin lechuga...)`}
+                      value={editNotes[item.id] ?? ""}
+                      onChange={(e) =>
+                        setEditNotes((prev) => ({
                           ...prev,
-                          [item.id]: (prev[item.id] ?? item.quantity) + 1,
+                          [item.id]: e.target.value,
                         }))
                       }
-                    >
-                      +
-                    </button>
-                  </div>
-                  <p
-                    style={{
-                      fontSize: 13,
-                      fontWeight: 500,
-                      color: "#1A1A1A",
-                      minWidth: 72,
-                      textAlign: "right",
-                    }}
-                  >
-                    {formatPrice(item.unit_price * qty)}
-                  </p>
+                    />
+                  )}
                 </div>
               );
             })}
@@ -351,62 +377,74 @@ export default function PedidoActivo() {
                 const p = products.find((p) => p.id === productId);
                 if (!p) return null;
                 return (
-                  <div
-                    key={productId}
-                    style={{
-                      ...s.itemRow,
-                      backgroundColor: "#EAF3DE",
-                      borderRadius: 6,
-                      padding: "8px 6px",
-                    }}
-                  >
-                    <div style={s.itemLeft}>
-                      <p style={{ ...s.itemName, color: "#3B6D11" }}>
-                        + {p.name}
-                      </p>
-                      <p style={s.itemNote}>
-                        {formatPrice(p.price)} c/u · nuevo
-                      </p>
-                    </div>
-                    <div style={s.qtyCtrl}>
-                      <button
-                        style={s.qtyBtn}
-                        onClick={() =>
-                          setNewItems((prev) => ({
-                            ...prev,
-                            [productId]: Math.max(
-                              0,
-                              (prev[productId] ?? 0) - 1,
-                            ),
-                          }))
-                        }
-                      >
-                        −
-                      </button>
-                      <span style={s.qtyNum}>{qty}</span>
-                      <button
-                        style={s.qtyBtn}
-                        onClick={() =>
-                          setNewItems((prev) => ({
-                            ...prev,
-                            [productId]: (prev[productId] ?? 0) + 1,
-                          }))
-                        }
-                      >
-                        +
-                      </button>
-                    </div>
-                    <p
+                  <div key={productId}>
+                    <div
                       style={{
-                        fontSize: 13,
-                        fontWeight: 500,
-                        color: "#3B6D11",
-                        minWidth: 72,
-                        textAlign: "right",
+                        ...s.itemRow,
+                        backgroundColor: "#EAF3DE",
+                        borderRadius: 6,
+                        padding: "8px 6px",
                       }}
                     >
-                      {formatPrice(p.price * qty)}
-                    </p>
+                      <div style={s.itemLeft}>
+                        <p style={{ ...s.itemName, color: "#3B6D11" }}>
+                          + {p.name}
+                        </p>
+                        <p style={s.itemNote}>
+                          {formatPrice(p.price)} c/u · nuevo
+                        </p>
+                      </div>
+                      <div style={s.qtyCtrl}>
+                        <button
+                          style={s.qtyBtn}
+                          onClick={() =>
+                            setNewItems((prev) => ({
+                              ...prev,
+                              [productId]: Math.max(
+                                0,
+                                (prev[productId] ?? 0) - 1,
+                              ),
+                            }))
+                          }
+                        >
+                          −
+                        </button>
+                        <span style={s.qtyNum}>{qty}</span>
+                        <button
+                          style={s.qtyBtn}
+                          onClick={() =>
+                            setNewItems((prev) => ({
+                              ...prev,
+                              [productId]: (prev[productId] ?? 0) + 1,
+                            }))
+                          }
+                        >
+                          +
+                        </button>
+                      </div>
+                      <p
+                        style={{
+                          fontSize: 13,
+                          fontWeight: 500,
+                          color: "#3B6D11",
+                          minWidth: 72,
+                          textAlign: "right",
+                        }}
+                      >
+                        {formatPrice(p.price * qty)}
+                      </p>
+                    </div>
+                    <input
+                      style={s.noteInput}
+                      placeholder={`Nota para ${p.name} (ej: sin lechuga...)`}
+                      value={newItemNotes[productId] ?? ""}
+                      onChange={(e) =>
+                        setNewItemNotes((prev) => ({
+                          ...prev,
+                          [productId]: e.target.value,
+                        }))
+                      }
+                    />
                   </div>
                 );
               })}
@@ -543,6 +581,37 @@ export default function PedidoActivo() {
               <div style={s.noteBox}>
                 <span style={s.noteLabel}>Nota: </span>
                 {order.note}
+              </div>
+            )}
+
+            {order.type === "domicilio" && (
+              <div style={s.noteBox}>
+                {order.address && (
+                  <p style={{ margin: "0 0 4px" }}>
+                    <span style={s.noteLabel}>Direccion: </span>
+                    {order.address}
+                  </p>
+                )}
+                {order.customer_name && (
+                  <p style={{ margin: "0 0 4px" }}>
+                    <span style={s.noteLabel}>Cliente: </span>
+                    {order.customer_name}
+                  </p>
+                )}
+                {order.customer_phone && (
+                  <p style={{ margin: "0 0 4px" }}>
+                    <span style={s.noteLabel}>Telefono: </span>
+                    {order.customer_phone}
+                  </p>
+                )}
+                {order.payment_method && (
+                  <p style={{ margin: 0 }}>
+                    <span style={s.noteLabel}>Medio de pago: </span>
+                    {order.payment_method === "efectivo"
+                      ? "Efectivo"
+                      : "Transferencia"}
+                  </p>
+                )}
               </div>
             )}
 
@@ -730,6 +799,20 @@ const s = {
     margin: 0,
     fontStyle: "italic",
     fontWeight: 500,
+  },
+  noteInput: {
+    width: "100%",
+    border: "0.5px solid #DDDDCC",
+    borderRadius: 6,
+    padding: "6px 10px",
+    fontSize: 11,
+    color: "#444441",
+    fontFamily: "sans-serif",
+    backgroundColor: "#FAFAF8",
+    marginTop: 6,
+    marginBottom: 8,
+    boxSizing: "border-box",
+    borderLeft: "2px solid #378ADD",
   },
   itemRight: { textAlign: "right" },
   itemPrice: {

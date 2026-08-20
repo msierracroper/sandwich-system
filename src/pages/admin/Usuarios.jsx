@@ -9,6 +9,7 @@ const ROLE_BADGE = {
   admin: { label: "Admin", bg: "#E6F1FB", color: "#0C447C" },
   tomador: { label: "Tomador", bg: "#F1EFE8", color: "#444441" },
   preparador: { label: "Preparador", bg: "#FAEEDA", color: "#633806" },
+  domiciliario: { label: "Domiciliario", bg: "#EAF3DE", color: "#3B6D11" },
 };
 
 const EMPTY_FORM = { email: "", name: "", password: "", role: "tomador" };
@@ -166,7 +167,7 @@ export default function Usuarios() {
 
           <p style={s.label}>Rol</p>
           <div style={s.roleRow}>
-            {["tomador", "preparador", "admin"].map((r) => (
+            {["tomador", "preparador", "domiciliario", "admin"].map((r) => (
               <button
                 key={r}
                 style={{
