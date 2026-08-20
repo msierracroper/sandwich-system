@@ -37,6 +37,7 @@ export default function PedidoActivo() {
   const [editMode, setEditMode] = useState(false);
   const [editQtys, setEditQtys] = useState({});
   const [editNotes, setEditNotes] = useState({});
+  const [editGeneralNote, setEditGeneralNote] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
 
   // Para agregar nuevos productos
@@ -113,6 +114,7 @@ export default function PedidoActivo() {
     });
     setEditQtys(qtys);
     setEditNotes(notes);
+    setEditGeneralNote(order?.note ?? "");
     setNewItems({});
     setNewItemNotes({});
     setShowAddProducts(false);
@@ -124,6 +126,7 @@ export default function PedidoActivo() {
     setEditMode(false);
     setEditQtys({});
     setEditNotes({});
+    setEditGeneralNote("");
     setNewItems({});
     setNewItemNotes({});
     setShowAddProducts(false);
@@ -186,12 +189,16 @@ export default function PedidoActivo() {
         await supabase.from("order_items").insert(newOrderItems);
       }
 
-      // Recalcular total
-      await supabase.from("orders").update({ total: editTotal }).eq("id", id);
+      // Recalcular total y nota general
+      await supabase
+        .from("orders")
+        .update({ total: editTotal, note: editGeneralNote || null })
+        .eq("id", id);
 
       setEditMode(false);
       setEditQtys({});
       setEditNotes({});
+      setEditGeneralNote("");
       setNewItems({});
       setNewItemNotes({});
       setShowAddProducts(false);
@@ -530,6 +537,17 @@ export default function PedidoActivo() {
                 })}
               </div>
             )}
+
+            <p style={{ ...s.sectionLabel, marginTop: 10 }}>
+              Nota general del pedido
+            </p>
+            <textarea
+              style={s.generalNoteTextarea}
+              placeholder="Nota general del pedido (opcional)..."
+              value={editGeneralNote}
+              onChange={(e) => setEditGeneralNote(e.target.value)}
+              rows={2}
+            />
 
             <div style={s.divider} />
             <div style={s.totalRow}>
@@ -930,6 +948,18 @@ const s = {
     fontWeight: 500,
     color: "#666660",
     marginBottom: 8,
+  },
+  generalNoteTextarea: {
+    width: "100%",
+    border: "0.5px solid #DDDDCC",
+    borderRadius: 8,
+    padding: "8px 12px",
+    fontSize: 12,
+    color: "#666660",
+    fontFamily: "sans-serif",
+    backgroundColor: "#F1EFE8",
+    resize: "none",
+    boxSizing: "border-box",
   },
   methodRow: {
     display: "grid",

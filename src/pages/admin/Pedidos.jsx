@@ -34,6 +34,7 @@ export default function Pedidos() {
   const [editMode, setEditMode] = useState(false);
   const [editQtys, setEditQtys] = useState({});
   const [editNotes, setEditNotes] = useState({});
+  const [editGeneralNote, setEditGeneralNote] = useState("");
   const [newItems, setNewItems] = useState({});
   const [newItemNotes, setNewItemNotes] = useState({});
   const [products, setProducts] = useState([]);
@@ -87,6 +88,7 @@ export default function Pedidos() {
     setEditMode(false);
     setEditQtys({});
     setEditNotes({});
+    setEditGeneralNote("");
     setNewItems({});
     setNewItemNotes({});
     setShowAddProducts(false);
@@ -102,6 +104,7 @@ export default function Pedidos() {
     });
     setEditQtys(qtys);
     setEditNotes(notes);
+    setEditGeneralNote(selected?.note ?? "");
     setNewItems({});
     setNewItemNotes({});
     setShowAddProducts(false);
@@ -113,6 +116,7 @@ export default function Pedidos() {
     setEditMode(false);
     setEditQtys({});
     setEditNotes({});
+    setEditGeneralNote("");
     setNewItems({});
     setNewItemNotes({});
     setShowAddProducts(false);
@@ -175,18 +179,23 @@ export default function Pedidos() {
       }
       await supabase
         .from("orders")
-        .update({ total: editTotal })
+        .update({ total: editTotal, note: editGeneralNote || null })
         .eq("id", selected.id);
       setEditMode(false);
       setEditQtys({});
       setEditNotes({});
+      setEditGeneralNote("");
       setNewItems({});
       setNewItemNotes({});
       setShowAddProducts(false);
       await loadOrderItems(selected.id);
       await loadOrders();
-      // Actualizar el pedido seleccionado con el nuevo total
-      setSelected((prev) => ({ ...prev, total: editTotal }));
+      // Actualizar el pedido seleccionado con el nuevo total y nota
+      setSelected((prev) => ({
+        ...prev,
+        total: editTotal,
+        note: editGeneralNote || null,
+      }));
     } catch (e) {
       alert("Error al guardar cambios");
     } finally {
@@ -616,6 +625,17 @@ export default function Pedidos() {
                     </div>
                   )}
 
+                  <p style={{ fontSize: 11, fontWeight: 500, color: "#666660", marginBottom: 8 }}>
+                    Nota general del pedido
+                  </p>
+                  <textarea
+                    style={s.generalNoteTextarea}
+                    placeholder="Nota general del pedido (opcional)..."
+                    value={editGeneralNote}
+                    onChange={(e) => setEditGeneralNote(e.target.value)}
+                    rows={2}
+                  />
+
                   <div style={s.divider} />
                   <div style={s.totalRow}>
                     <span>Nuevo total</span>
@@ -958,6 +978,18 @@ const s = {
     marginBottom: 8,
     boxSizing: "border-box",
     borderLeft: "2px solid #378ADD",
+  },
+  generalNoteTextarea: {
+    width: "100%",
+    border: "0.5px solid #DDDDCC",
+    borderRadius: 8,
+    padding: "8px 12px",
+    fontSize: 12,
+    color: "#666660",
+    fontFamily: "sans-serif",
+    backgroundColor: "#F1EFE8",
+    resize: "none",
+    boxSizing: "border-box",
   },
   itemRight: { textAlign: "right" },
   itemPrice: {
