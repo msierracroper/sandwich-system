@@ -39,6 +39,9 @@ export default function PedidoActivo() {
   const [subCashReceived, setSubCashReceived] = useState({}); // { cuenta: string }
   const [subMixedCash, setSubMixedCash] = useState({}); // { cuenta: string }
   const [payingLabel, setPayingLabel] = useState(null);
+  const [showMesaChanger, setShowMesaChanger] = useState(false);
+  const [freeTables, setFreeTables] = useState([]);
+  const [changingMesa, setChangingMesa] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [editQtys, setEditQtys] = useState({});
   const [editNotes, setEditNotes] = useState({});
@@ -94,6 +97,36 @@ export default function PedidoActivo() {
       .order("category")
       .order("name");
     setProducts(data ?? []);
+  }
+
+  async function openMesaChanger() {
+    const [{ data: tablesData }, { data: activeOrders }] = await Promise.all([
+      supabase.from("tables").select("*").eq("active", true).order("name"),
+      supabase
+        .from("orders")
+        .select("table_id")
+        .in("status", ["abierto", "en_preparacion", "listo"])
+        .not("table_id", "is", null),
+    ]);
+    const occupiedIds = new Set((activeOrders ?? []).map((o) => o.table_id));
+    setFreeTables((tablesData ?? []).filter((t) => !occupiedIds.has(t.id)));
+    setShowMesaChanger(true);
+  }
+
+  async function cambiarMesa(newTableId) {
+    setChangingMesa(true);
+    const { error } = await supabase
+      .from("orders")
+      .update({ table_id: newTableId })
+      .eq("id", id);
+    if (error) {
+      alert("Error al cambiar de mesa");
+      setChangingMesa(false);
+      return;
+    }
+    setShowMesaChanger(false);
+    setChangingMesa(false);
+    await loadOrder();
   }
 
   function formatPrice(n) {
@@ -367,6 +400,11 @@ export default function PedidoActivo() {
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {canEdit && !editMode && order.type === "mesa" && (
+            <button style={s.editBtn} onClick={openMesaChanger}>
+              🔁 Mesa
+            </button>
+          )}
           {canEdit && !editMode && (
             <button style={s.editBtn} onClick={openEdit}>
               ✏️ Editar
@@ -383,6 +421,40 @@ export default function PedidoActivo() {
           </div>
         </div>
       </div>
+
+      {showMesaChanger && (
+        <div style={s.mesaChangerBox}>
+          <div style={s.mesaChangerHeader}>
+            <p style={s.mesaChangerTitle}>Cambiar a que mesa?</p>
+            <button
+              style={s.mesaChangerClose}
+              onClick={() => setShowMesaChanger(false)}
+            >
+              ✕
+            </button>
+          </div>
+          {freeTables.length === 0 ? (
+            <p style={s.emptyMesaTxt}>No hay mesas libres en este momento</p>
+          ) : (
+            <div style={s.mesaChangerGrid}>
+              {freeTables.map((t) => (
+                <button
+                  key={t.id}
+                  style={{
+                    ...s.mesaChangerBtn,
+                    opacity: changingMesa ? 0.6 : 1,
+                    cursor: changingMesa ? "not-allowed" : "pointer",
+                  }}
+                  disabled={changingMesa}
+                  onClick={() => cambiarMesa(t.id)}
+                >
+                  {t.name}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <div style={s.steps}>
         <div style={{ ...s.stepDot, backgroundColor: "#378ADD" }} />
@@ -1113,6 +1185,47 @@ const s = {
     padding: "4px 10px",
     cursor: "pointer",
   },
+  mesaChangerBox: {
+    backgroundColor: "#FFF",
+    borderBottom: "0.5px solid #DDDDCC",
+    padding: 14,
+  },
+  mesaChangerHeader: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+  mesaChangerTitle: {
+    fontSize: 13,
+    fontWeight: 600,
+    color: "#1A1A1A",
+    margin: 0,
+  },
+  mesaChangerClose: {
+    background: "none",
+    border: "none",
+    fontSize: 14,
+    color: "#666660",
+    cursor: "pointer",
+    padding: "0 4px",
+  },
+  mesaChangerGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(4, 1fr)",
+    gap: 8,
+  },
+  mesaChangerBtn: {
+    border: "0.5px solid #B5D4F4",
+    backgroundColor: "#E6F1FB",
+    color: "#185FA5",
+    borderRadius: 8,
+    padding: "10px 4px",
+    fontSize: 13,
+    fontWeight: 500,
+    fontFamily: "sans-serif",
+  },
+  emptyMesaTxt: { fontSize: 12, color: "#888880", margin: 0 },
   steps: {
     display: "flex",
     alignItems: "center",

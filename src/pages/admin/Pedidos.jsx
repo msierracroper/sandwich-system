@@ -42,6 +42,9 @@ export default function Pedidos() {
   const [showAddProducts, setShowAddProducts] = useState(false);
   const [saving, setSaving] = useState(false);
   const [filterStatus, setFilterStatus] = useState("todos");
+  const [showMesaChanger, setShowMesaChanger] = useState(false);
+  const [freeTables, setFreeTables] = useState([]);
+  const [changingMesa, setChangingMesa] = useState(false);
 
   async function loadOrders() {
     setLoading(true);
@@ -78,6 +81,42 @@ export default function Pedidos() {
     setProducts(data ?? []);
   }
 
+  async function openMesaChanger() {
+    const [{ data: tablesData }, { data: activeOrders }] = await Promise.all([
+      supabase.from("tables").select("*").eq("active", true).order("name"),
+      supabase
+        .from("orders")
+        .select("table_id")
+        .in("status", ["abierto", "en_preparacion", "listo"])
+        .not("table_id", "is", null),
+    ]);
+    const occupiedIds = new Set((activeOrders ?? []).map((o) => o.table_id));
+    setFreeTables((tablesData ?? []).filter((t) => !occupiedIds.has(t.id)));
+    setShowMesaChanger(true);
+  }
+
+  async function cambiarMesa(newTableId) {
+    setChangingMesa(true);
+    const { error } = await supabase
+      .from("orders")
+      .update({ table_id: newTableId })
+      .eq("id", selected.id);
+    if (error) {
+      alert("Error al cambiar de mesa");
+      setChangingMesa(false);
+      return;
+    }
+    const { data: updated } = await supabase
+      .from("orders")
+      .select("*, tables(name), users!orders_user_id_fkey(name)")
+      .eq("id", selected.id)
+      .single();
+    setSelected(updated);
+    setShowMesaChanger(false);
+    setChangingMesa(false);
+    await loadOrders();
+  }
+
   // eslint-disable-next-line
   useEffect(() => {
     loadOrders();
@@ -92,6 +131,7 @@ export default function Pedidos() {
     setNewItems({});
     setNewItemNotes({});
     setShowAddProducts(false);
+    setShowMesaChanger(false);
     loadOrderItems(order.id);
   }
 
@@ -226,11 +266,13 @@ export default function Pedidos() {
   }
 
   async function changeStatus(order, newStatus) {
+    const closedAt =
+      newStatus === "cerrado" ? new Date().toISOString() : order.closed_at;
     await supabase
       .from("orders")
-      .update({ status: newStatus })
+      .update({ status: newStatus, closed_at: closedAt })
       .eq("id", order.id);
-    setSelected((prev) => ({ ...prev, status: newStatus }));
+    setSelected((prev) => ({ ...prev, status: newStatus, closed_at: closedAt }));
     await loadOrders();
   }
 
@@ -374,6 +416,13 @@ export default function Pedidos() {
                     justifyContent: "flex-end",
                   }}
                 >
+                  {selected.status !== "cerrado" &&
+                    !editMode &&
+                    selected.type === "mesa" && (
+                      <button style={s.editBtn} onClick={openMesaChanger}>
+                        🔁 Mesa
+                      </button>
+                    )}
                   {selected.status !== "cerrado" && !editMode && (
                     <button style={s.editBtn} onClick={openEdit}>
                       ✏️ Editar
@@ -389,6 +438,42 @@ export default function Pedidos() {
                   )}
                 </div>
               </div>
+
+              {showMesaChanger && (
+                <div style={s.mesaChangerBox}>
+                  <div style={s.mesaChangerHeader}>
+                    <p style={s.mesaChangerTitle}>Cambiar a que mesa?</p>
+                    <button
+                      style={s.mesaChangerClose}
+                      onClick={() => setShowMesaChanger(false)}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  {freeTables.length === 0 ? (
+                    <p style={s.emptyMesaTxt}>
+                      No hay mesas libres en este momento
+                    </p>
+                  ) : (
+                    <div style={s.mesaChangerGrid}>
+                      {freeTables.map((t) => (
+                        <button
+                          key={t.id}
+                          style={{
+                            ...s.mesaChangerBtn,
+                            opacity: changingMesa ? 0.6 : 1,
+                            cursor: changingMesa ? "not-allowed" : "pointer",
+                          }}
+                          disabled={changingMesa}
+                          onClick={() => cambiarMesa(t.id)}
+                        >
+                          {t.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Items */}
               {loadingItems ? (
@@ -917,6 +1002,49 @@ const s = {
     padding: "5px 10px",
     cursor: "pointer",
   },
+  mesaChangerBox: {
+    backgroundColor: "#FFF",
+    border: "0.5px solid #DDDDCC",
+    borderRadius: 8,
+    padding: 14,
+    marginBottom: 12,
+  },
+  mesaChangerHeader: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+  mesaChangerTitle: {
+    fontSize: 13,
+    fontWeight: 600,
+    color: "#1A1A1A",
+    margin: 0,
+  },
+  mesaChangerClose: {
+    background: "none",
+    border: "none",
+    fontSize: 14,
+    color: "#666660",
+    cursor: "pointer",
+    padding: "0 4px",
+  },
+  mesaChangerGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(4, 1fr)",
+    gap: 8,
+  },
+  mesaChangerBtn: {
+    border: "0.5px solid #B5D4F4",
+    backgroundColor: "#E6F1FB",
+    color: "#185FA5",
+    borderRadius: 8,
+    padding: "10px 4px",
+    fontSize: 13,
+    fontWeight: 500,
+    fontFamily: "sans-serif",
+  },
+  emptyMesaTxt: { fontSize: 12, color: "#888880", margin: 0 },
   cancelBtn: {
     fontSize: 12,
     fontWeight: 500,

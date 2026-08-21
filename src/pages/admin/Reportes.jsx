@@ -4,11 +4,34 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 
+function bogotaHour(dateStr) {
+  const h = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Bogota",
+    hour: "2-digit",
+    hour12: false,
+  }).format(new Date(dateStr));
+  return parseInt(h, 10) % 24;
+}
+
+function hourLabel(h) {
+  return `${String(h).padStart(2, "0")}:00`;
+}
+
+function bogotaDateStr(dateStr) {
+  return new Date(dateStr).toLocaleDateString("en-CA", {
+    timeZone: "America/Bogota",
+  });
+}
+
 export default function Reportes() {
   const navigate = useNavigate();
+  const todayStr = new Date().toLocaleDateString("en-CA", {
+    timeZone: "America/Bogota",
+  });
   const [tab, setTab] = useState("hoy");
   const [histTab, setHistTab] = useState("semana");
   const [statsTab, setStatsTab] = useState("semana");
+  const [viewDate, setViewDate] = useState(todayStr);
   const [stats, setStats] = useState(null);
   const [orders, setOrders] = useState([]);
   const [topProducts, setTopProducts] = useState([]);
@@ -23,12 +46,11 @@ export default function Reportes() {
   const [fechaHasta, setFechaHasta] = useState("");
   const [statsDesde, setStatsDesde] = useState("");
   const [statsHasta, setStatsHasta] = useState("");
+  const [missingDays, setMissingDays] = useState([]);
+  const [loadingMissing, setLoadingMissing] = useState(false);
 
-  async function loadToday() {
+  async function loadDay(dateStr) {
     setLoading(true);
-    const today = new Date().toLocaleDateString("en-CA", {
-      timeZone: "America/Bogota",
-    });
     const [{ data: ordersData }, { data: summary }] = await Promise.all([
       supabase
         .from("orders")
@@ -36,13 +58,13 @@ export default function Reportes() {
           "*, tables(name), order_items(quantity, unit_price, products(name))",
         )
         .eq("status", "cerrado")
-        .gte("closed_at", today + "T00:00:00")
-        .lte("closed_at", today + "T23:59:59")
+        .gte("closed_at", dateStr + "T00:00:00")
+        .lte("closed_at", dateStr + "T23:59:59")
         .order("closed_at", { ascending: false }),
       supabase
         .from("daily_summaries")
         .select("*")
-        .eq("date", today)
+        .eq("date", dateStr)
         .maybeSingle(),
     ]);
     setDayAlreadyClosed(!!summary?.exported);
@@ -87,12 +109,28 @@ export default function Reportes() {
         if (p.payment_method === "mixto") return a + (p.transfer_amount ?? 0);
         return a;
       }, 0);
+    const byType = { mesa: 0, para_llevar: 0, domicilio: 0 };
+    for (const o of data) {
+      if (byType[o.type] !== undefined) byType[o.type] += o.total ?? 0;
+    }
+
+    const hourlyMap = {};
+    for (const o of data) {
+      const h = bogotaHour(o.closed_at);
+      hourlyMap[h] = (hourlyMap[h] ?? 0) + (o.total ?? 0);
+    }
+    const hourly = Object.entries(hourlyMap)
+      .map(([hour, total]) => ({ hour: parseInt(hour, 10), total }))
+      .sort((a, b) => a.hour - b.hour);
+
     setStats({
       total,
       orders: data.length,
       cash,
       transfer,
       avg: data.length > 0 ? Math.round(total / data.length) : 0,
+      byType,
+      hourly,
     });
     const prodMap = {};
     for (const order of data) {
@@ -107,6 +145,45 @@ export default function Reportes() {
       .map(([name, qty]) => ({ name, qty }));
     setTopProducts(sorted);
     setLoading(false);
+  }
+
+  async function fetchAllClosedOrders() {
+    const pageSize = 1000;
+    let from = 0;
+    let all = [];
+    while (true) {
+      const { data } = await supabase
+        .from("orders")
+        .select("closed_at, total")
+        .eq("status", "cerrado")
+        .order("closed_at", { ascending: true })
+        .range(from, from + pageSize - 1);
+      if (!data || data.length === 0) break;
+      all = all.concat(data);
+      if (data.length < pageSize) break;
+      from += pageSize;
+    }
+    return all;
+  }
+
+  async function loadMissingDays() {
+    setLoadingMissing(true);
+    const [closedOrders, { data: summaries }] = await Promise.all([
+      fetchAllClosedOrders(),
+      supabase.from("daily_summaries").select("date"),
+    ]);
+    const closedDates = new Set((summaries ?? []).map((s) => s.date));
+    const byDate = {};
+    for (const o of closedOrders ?? []) {
+      if (!o.closed_at) continue;
+      const d = bogotaDateStr(o.closed_at);
+      if (closedDates.has(d)) continue;
+      if (!byDate[d]) byDate[d] = { date: d, orders: 0, total: 0 };
+      byDate[d].orders += 1;
+      byDate[d].total += o.total ?? 0;
+    }
+    setMissingDays(Object.values(byDate).sort((a, b) => (a.date < b.date ? -1 : 1)));
+    setLoadingMissing(false);
   }
 
   async function loadHistory() {
@@ -171,7 +248,7 @@ export default function Reportes() {
       supabase
         .from("order_items")
         .select(
-          "quantity, unit_price, station, products(name, category), orders!inner(status, closed_at)",
+          "quantity, unit_price, station, products(name, category), orders!inner(status, closed_at, type)",
         )
         .eq("orders.status", "cerrado")
         .gte("orders.closed_at", fromStr + "T00:00:00")
@@ -192,6 +269,8 @@ export default function Reportes() {
     const prodMap = {};
     let totalIngresos = 0;
     let totalUnidades = 0;
+    const typeMap = { mesa: 0, para_llevar: 0, domicilio: 0 };
+    const hourlyMap = {};
 
     for (const item of itemsData) {
       const name = item.products?.name ?? "Desconocido";
@@ -205,9 +284,18 @@ export default function Reportes() {
       prodMap[name].ingreso += ingreso;
       totalIngresos += ingreso;
       totalUnidades += qty;
+
+      const type = item.orders?.type;
+      if (typeMap[type] !== undefined) typeMap[type] += ingreso;
+
+      const h = bogotaHour(item.orders?.closed_at);
+      hourlyMap[h] = (hourlyMap[h] ?? 0) + ingreso;
     }
 
     const ranking = Object.values(prodMap).sort((a, b) => b.qty - a.qty);
+    const hourly = Object.entries(hourlyMap)
+      .map(([hour, total]) => ({ hour: parseInt(hour, 10), total }))
+      .sort((a, b) => a.hour - b.hour);
 
     // Por categoria ventas
     const catMap = {};
@@ -234,6 +322,8 @@ export default function Reportes() {
       totalIngresos,
       totalUnidades,
       catMap,
+      typeMap,
+      hourly,
       totalGastos,
       gastosPorCat,
       utilidad,
@@ -245,7 +335,13 @@ export default function Reportes() {
   // eslint-disable-next-line
   useEffect(() => {
     // eslint-disable-next-line
-    loadToday();
+    loadDay(viewDate);
+  }, [viewDate]);
+
+  // eslint-disable-next-line
+  useEffect(() => {
+    // eslint-disable-next-line
+    loadMissingDays();
   }, []);
 
   // eslint-disable-next-line
@@ -262,12 +358,9 @@ export default function Reportes() {
 
   async function cerrarDia() {
     setClosing(true);
-    const today = new Date().toLocaleDateString("en-CA", {
-      timeZone: "America/Bogota",
-    });
     const { error } = await supabase.from("daily_summaries").upsert(
       {
-        date: today,
+        date: viewDate,
         total: stats.total,
         orders_count: stats.orders,
         cash_total: stats.cash,
@@ -285,6 +378,7 @@ export default function Reportes() {
     setDayAlreadyClosed(true);
     setShowConfirm(false);
     setClosing(false);
+    await loadMissingDays();
     alert("Dia cerrado correctamente.");
   }
 
@@ -309,6 +403,16 @@ export default function Reportes() {
     granizado: "#0F6E56",
     adicion: "#854F0B",
   };
+  const TYPE_LABEL = {
+    mesa: "Mesa",
+    para_llevar: "Para llevar",
+    domicilio: "Domicilio",
+  };
+  const TYPE_COLOR = {
+    mesa: "#185FA5",
+    para_llevar: "#854F0B",
+    domicilio: "#0F6E56",
+  };
   const GASTO_LABEL = {
     materia_prima: "Materia prima",
     servicios: "Servicios",
@@ -326,6 +430,11 @@ export default function Reportes() {
 
   const maxQty = topProducts[0]?.qty ?? 1;
   const maxRankQty = statsData?.ranking[0]?.qty ?? 1;
+  const maxHourlyToday = Math.max(...(stats?.hourly?.map((h) => h.total) ?? [1]), 1);
+  const maxHourlyStats = Math.max(
+    ...(statsData?.hourly?.map((h) => h.total) ?? [1]),
+    1,
+  );
 
   return (
     <div style={s.page}>
@@ -407,6 +516,43 @@ export default function Reportes() {
       {/* ── TAB HOY ── */}
       {tab === "hoy" && (
         <div style={s.body}>
+          {viewDate !== todayStr && (
+            <div style={s.viewingPastBox}>
+              <span style={s.viewingPastTxt}>
+                Viendo: {formatDate(viewDate)}
+              </span>
+              <button
+                style={s.backToTodayBtn}
+                onClick={() => setViewDate(todayStr)}
+              >
+                ‹ Volver a hoy
+              </button>
+            </div>
+          )}
+
+          {viewDate === todayStr && !loadingMissing && missingDays.length > 0 && (
+            <div style={s.missingBox}>
+              <p style={s.missingTitle}>
+                ⚠ Tienes {missingDays.length} día
+                {missingDays.length !== 1 ? "s" : ""} sin cerrar
+              </p>
+              <div style={s.missingList}>
+                {missingDays.map((d) => (
+                  <button
+                    key={d.date}
+                    style={s.missingRow}
+                    onClick={() => setViewDate(d.date)}
+                  >
+                    <span>{formatDate(d.date)}</span>
+                    <span style={s.missingMeta}>
+                      {d.orders} pedidos · {formatPrice(d.total)}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {loading ? (
             <p style={s.loadTxt}>Calculando...</p>
           ) : (
@@ -495,6 +641,61 @@ export default function Reportes() {
                   </div>
                 </>
               )}
+              {stats.total > 0 && (
+                <>
+                  <div style={s.divider} />
+                  <p style={s.sectionLabel}>Ventas por tipo de pedido</p>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 6,
+                      marginBottom: 4,
+                    }}
+                  >
+                    {Object.entries(stats.byType)
+                      .filter(([, amount]) => amount > 0)
+                      .map(([type, amount]) => (
+                        <div key={type} style={s.catRow}>
+                          <div
+                            style={{
+                              ...s.catDot,
+                              backgroundColor: TYPE_COLOR[type] ?? "#888880",
+                            }}
+                          />
+                          <span style={s.catName}>
+                            {TYPE_LABEL[type] ?? type}
+                          </span>
+                          <span style={s.catIngreso}>
+                            {formatPrice(amount)}
+                          </span>
+                        </div>
+                      ))}
+                  </div>
+                </>
+              )}
+              {stats.hourly.length > 0 && (
+                <>
+                  <div style={s.divider} />
+                  <p style={s.sectionLabel}>Ventas por hora</p>
+                  <div style={s.rankList}>
+                    {stats.hourly.map((h) => (
+                      <div key={h.hour} style={s.rankRow}>
+                        <span style={s.hourLabel}>{hourLabel(h.hour)}</span>
+                        <div style={s.rankBarWrap}>
+                          <div
+                            style={{
+                              ...s.rankBar,
+                              width: `${Math.round((h.total / maxHourlyToday) * 100)}%`,
+                            }}
+                          />
+                        </div>
+                        <span style={s.rankQty}>{formatPrice(h.total)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
               {orders.length > 0 && (
                 <>
                   <div style={s.divider} />
@@ -573,6 +774,33 @@ export default function Reportes() {
             <p style={s.loadTxt}>No hay días cerrados en este período</p>
           ) : (
             <>
+              <p style={s.sectionLabel}>Tendencia</p>
+              <div style={{ ...s.rankList, marginBottom: 4 }}>
+                {[...history].reverse().map((day) => (
+                  <div key={day.id} style={s.rankRow}>
+                    <span style={s.histTrendLabel}>
+                      {new Date(day.date + "T12:00:00").toLocaleDateString(
+                        "es-CO",
+                        { weekday: "short", day: "numeric" },
+                      )}
+                    </span>
+                    <div style={s.rankBarWrap}>
+                      <div
+                        style={{
+                          ...s.rankBar,
+                          width: `${Math.round(
+                            (day.total /
+                              Math.max(...history.map((d) => d.total), 1)) *
+                              100,
+                          )}%`,
+                        }}
+                      />
+                    </div>
+                    <span style={s.rankQty}>{formatPrice(day.total)}</span>
+                  </div>
+                ))}
+              </div>
+              <div style={s.divider} />
               {history.map((day) => (
                 <div key={day.id} style={s.histRow}>
                   <div>
@@ -854,6 +1082,57 @@ export default function Reportes() {
                 ))}
               </div>
 
+              {/* Ventas por tipo de pedido */}
+              <div style={s.divider} />
+              <p style={s.sectionLabel}>Ventas por tipo de pedido</p>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 6,
+                  marginBottom: 12,
+                }}
+              >
+                {Object.entries(statsData.typeMap)
+                  .filter(([, amount]) => amount > 0)
+                  .map(([type, amount]) => (
+                    <div key={type} style={s.catRow}>
+                      <div
+                        style={{
+                          ...s.catDot,
+                          backgroundColor: TYPE_COLOR[type] ?? "#888880",
+                        }}
+                      />
+                      <span style={s.catName}>{TYPE_LABEL[type] ?? type}</span>
+                      <span style={s.catIngreso}>{formatPrice(amount)}</span>
+                    </div>
+                  ))}
+              </div>
+
+              {/* Ventas por hora */}
+              {statsData.hourly.length > 0 && (
+                <>
+                  <div style={s.divider} />
+                  <p style={s.sectionLabel}>Ventas por hora</p>
+                  <div style={{ ...s.rankList, marginBottom: 12 }}>
+                    {statsData.hourly.map((h) => (
+                      <div key={h.hour} style={s.rankRow}>
+                        <span style={s.hourLabel}>{hourLabel(h.hour)}</span>
+                        <div style={s.rankBarWrap}>
+                          <div
+                            style={{
+                              ...s.rankBar,
+                              width: `${Math.round((h.total / maxHourlyStats) * 100)}%`,
+                            }}
+                          />
+                        </div>
+                        <span style={s.rankQty}>{formatPrice(h.total)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+
               {/* Ranking productos */}
               <div style={s.divider} />
               <p style={s.sectionLabel}>Ranking de productos</p>
@@ -1063,6 +1342,67 @@ const s = {
   },
   body: { padding: 16 },
   loadTxt: { fontSize: 13, color: "#888880", textAlign: "center", padding: 20 },
+  viewingPastBox: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#E6F1FB",
+    borderRadius: 8,
+    padding: "8px 12px",
+    marginBottom: 12,
+  },
+  viewingPastTxt: {
+    fontSize: 12,
+    fontWeight: 500,
+    color: "#185FA5",
+    textTransform: "capitalize",
+  },
+  backToTodayBtn: {
+    fontSize: 11,
+    fontWeight: 500,
+    color: "#185FA5",
+    background: "none",
+    border: "0.5px solid #B5D4F4",
+    borderRadius: 20,
+    padding: "4px 10px",
+    cursor: "pointer",
+  },
+  missingBox: {
+    backgroundColor: "#FCEBEB",
+    border: "0.5px solid #F5BCBC",
+    borderRadius: 8,
+    padding: "10px 12px",
+    marginBottom: 12,
+  },
+  missingTitle: {
+    fontSize: 12,
+    fontWeight: 600,
+    color: "#A32D2D",
+    margin: "0 0 8px",
+  },
+  missingList: { display: "flex", flexDirection: "column", gap: 6 },
+  missingRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    width: "100%",
+    backgroundColor: "#FFF",
+    border: "0.5px solid #F5BCBC",
+    borderRadius: 6,
+    padding: "8px 10px",
+    fontSize: 12,
+    fontWeight: 500,
+    color: "#1A1A1A",
+    fontFamily: "sans-serif",
+    cursor: "pointer",
+    textTransform: "capitalize",
+  },
+  missingMeta: {
+    fontSize: 11,
+    fontWeight: 400,
+    color: "#888880",
+    textTransform: "none",
+  },
   statsGrid: {
     display: "grid",
     gridTemplateColumns: "1fr 1fr",
@@ -1120,7 +1460,19 @@ const s = {
     overflow: "hidden",
   },
   rankBar: { height: "100%", backgroundColor: "#185FA5", borderRadius: 3 },
-  rankQty: { fontSize: 11, color: "#888880", minWidth: 40, textAlign: "right" },
+  rankQty: { fontSize: 11, color: "#888880", minWidth: 60, textAlign: "right" },
+  hourLabel: {
+    fontSize: 12,
+    color: "#1A1A1A",
+    minWidth: 42,
+    fontWeight: 500,
+  },
+  histTrendLabel: {
+    fontSize: 11,
+    color: "#666660",
+    minWidth: 42,
+    textTransform: "capitalize",
+  },
   orderList: { display: "flex", flexDirection: "column", gap: 6 },
   orderRow: {
     display: "flex",
