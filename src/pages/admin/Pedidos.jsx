@@ -50,7 +50,7 @@ export default function Pedidos() {
     });
     const { data } = await supabase
       .from("orders")
-      .select("*, tables(name), users(name)")
+      .select("*, tables(name), users!orders_user_id_fkey(name)")
       .gte("created_at", today + "T00:00:00")
       .lte("created_at", today + "T23:59:59")
       .order("created_at", { ascending: false });
