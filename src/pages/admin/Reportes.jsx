@@ -48,17 +48,45 @@ export default function Reportes() {
     setDayAlreadyClosed(!!summary?.exported);
     const data = ordersData ?? [];
     setOrders(data);
+
+    // Pedidos con cuenta dividida: el desglose vive en order_payments, no en las
+    // columnas de orders, asi que hay que traerlo aparte para no perder esa plata
+    // de los totales del dia.
+    const splitOrderIds = data
+      .filter((o) => o.payment_method === "dividido")
+      .map((o) => o.id);
+    let splitPayments = [];
+    if (splitOrderIds.length > 0) {
+      const { data: paymentsData } = await supabase
+        .from("order_payments")
+        .select("*")
+        .in("order_id", splitOrderIds);
+      splitPayments = paymentsData ?? [];
+    }
+
     const total = data.reduce((a, o) => a + (o.total ?? 0), 0);
-    const cash = data.reduce((a, o) => {
-      if (o.payment_method === "efectivo") return a + (o.total ?? 0);
-      if (o.payment_method === "mixto") return a + (o.cash_amount ?? 0);
-      return a;
-    }, 0);
-    const transfer = data.reduce((a, o) => {
-      if (o.payment_method === "transferencia") return a + (o.total ?? 0);
-      if (o.payment_method === "mixto") return a + (o.transfer_amount ?? 0);
-      return a;
-    }, 0);
+    const cash =
+      data.reduce((a, o) => {
+        if (o.payment_method === "efectivo") return a + (o.total ?? 0);
+        if (o.payment_method === "mixto") return a + (o.cash_amount ?? 0);
+        return a;
+      }, 0) +
+      splitPayments.reduce((a, p) => {
+        if (p.payment_method === "efectivo") return a + p.amount;
+        if (p.payment_method === "mixto") return a + (p.cash_amount ?? 0);
+        return a;
+      }, 0);
+    const transfer =
+      data.reduce((a, o) => {
+        if (o.payment_method === "transferencia") return a + (o.total ?? 0);
+        if (o.payment_method === "mixto") return a + (o.transfer_amount ?? 0);
+        return a;
+      }, 0) +
+      splitPayments.reduce((a, p) => {
+        if (p.payment_method === "transferencia") return a + p.amount;
+        if (p.payment_method === "mixto") return a + (p.transfer_amount ?? 0);
+        return a;
+      }, 0);
     setStats({
       total,
       orders: data.length,
@@ -486,7 +514,9 @@ export default function Reportes() {
                           <p style={s.orderMeta}>
                             {order.payment_method === "mixto"
                               ? `mixto (efvo ${formatPrice(order.cash_amount)} / transf ${formatPrice(order.transfer_amount)})`
-                              : order.payment_method}{" "}
+                              : order.payment_method === "dividido"
+                                ? "cuenta dividida"
+                                : order.payment_method}{" "}
                             · {order.order_items?.length ?? 0} items
                           </p>
                         </div>

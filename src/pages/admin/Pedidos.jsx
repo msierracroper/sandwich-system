@@ -673,6 +673,9 @@ export default function Pedidos() {
                         <div style={s.itemLeft}>
                           <p style={s.itemName}>
                             {item.quantity}x {item.products?.name}
+                            {item.subcuenta && (
+                              <span style={s.subcuentaTag}> · {item.subcuenta}</span>
+                            )}
                           </p>
                           {item.note && <p style={s.itemNote}>{item.note}</p>}
                         </div>
@@ -964,6 +967,11 @@ const s = {
     margin: 0,
     fontStyle: "italic",
     fontWeight: 500,
+  },
+  subcuentaTag: {
+    fontSize: 11,
+    fontWeight: 500,
+    color: "#185FA5",
   },
   noteInput: {
     width: "100%",

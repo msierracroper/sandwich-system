@@ -34,6 +34,11 @@ export default function PedidoActivo() {
   const [cashReceived, setCashReceived] = useState("");
   const [mixedCash, setMixedCash] = useState("");
   const [saving, setSaving] = useState(false);
+  const [payments, setPayments] = useState([]); // pagos por cuenta (cuentas divididas)
+  const [subMethod, setSubMethod] = useState({}); // { cuenta: 'efectivo' | 'transferencia' | 'mixto' }
+  const [subCashReceived, setSubCashReceived] = useState({}); // { cuenta: string }
+  const [subMixedCash, setSubMixedCash] = useState({}); // { cuenta: string }
+  const [payingLabel, setPayingLabel] = useState(null);
   const [editMode, setEditMode] = useState(false);
   const [editQtys, setEditQtys] = useState({});
   const [editNotes, setEditNotes] = useState({});
@@ -66,15 +71,18 @@ export default function PedidoActivo() {
   }, [id]);
 
   async function loadOrder() {
-    const [{ data: orderData }, { data: itemsData }] = await Promise.all([
-      supabase.from("orders").select("*, tables(name)").eq("id", id).single(),
-      supabase
-        .from("order_items")
-        .select("*, products(name, station)")
-        .eq("order_id", id),
-    ]);
+    const [{ data: orderData }, { data: itemsData }, { data: paymentsData }] =
+      await Promise.all([
+        supabase.from("orders").select("*, tables(name)").eq("id", id).single(),
+        supabase
+          .from("order_items")
+          .select("*, products(name, station)")
+          .eq("order_id", id),
+        supabase.from("order_payments").select("*").eq("order_id", id),
+      ]);
     setOrder(orderData);
     setItems(itemsData ?? []);
+    setPayments(paymentsData ?? []);
     setLoading(false);
   }
 
@@ -103,6 +111,88 @@ export default function PedidoActivo() {
 
   function mixedTransferNum() {
     return Math.max((order?.total ?? 0) - mixedCashNum(), 0);
+  }
+
+  // ── Cuentas divididas ────────────────────────────────────────────────────
+  function subcuentaLabels() {
+    return [...new Set(items.map((i) => i.subcuenta).filter(Boolean))];
+  }
+
+  function isSplit() {
+    return subcuentaLabels().length > 1;
+  }
+
+  function subcuentaSubtotal(label) {
+    return items
+      .filter((i) => i.subcuenta === label)
+      .reduce((acc, i) => acc + i.unit_price * i.quantity, 0);
+  }
+
+  function paymentFor(label) {
+    return payments.find((p) => p.subcuenta === label);
+  }
+
+  function subVuelto(label) {
+    const received =
+      parseInt((subCashReceived[label] ?? "").replace(/\D/g, "")) || 0;
+    return received - subcuentaSubtotal(label);
+  }
+
+  function subMixedCashNum(label) {
+    return parseInt((subMixedCash[label] ?? "").replace(/\D/g, "")) || 0;
+  }
+
+  function subMixedTransferNum(label) {
+    return Math.max(subcuentaSubtotal(label) - subMixedCashNum(label), 0);
+  }
+
+  async function cobrarSubcuenta(label) {
+    setPayingLabel(label);
+    const m = subMethod[label] ?? "efectivo";
+    const amount = subcuentaSubtotal(label);
+    const received =
+      parseInt((subCashReceived[label] ?? "").replace(/\D/g, "")) || null;
+
+    const { error } = await supabase.from("order_payments").insert({
+      order_id: id,
+      subcuenta: label,
+      payment_method: m,
+      amount,
+      cash_received: m === "efectivo" ? received : null,
+      cash_amount: m === "mixto" ? subMixedCashNum(label) : null,
+      transfer_amount: m === "mixto" ? subMixedTransferNum(label) : null,
+    });
+
+    if (error) {
+      alert(`Error al registrar el pago de ${label}`);
+      setPayingLabel(null);
+      return;
+    }
+
+    const { data: paymentsData } = await supabase
+      .from("order_payments")
+      .select("*")
+      .eq("order_id", id);
+    setPayments(paymentsData ?? []);
+
+    const missing = subcuentaLabels().filter(
+      (l) => !(paymentsData ?? []).some((p) => p.subcuenta === l),
+    );
+
+    if (missing.length === 0) {
+      await supabase
+        .from("orders")
+        .update({
+          status: "cerrado",
+          payment_method: "dividido",
+          closed_at: new Date().toISOString(),
+        })
+        .eq("id", id);
+      navigate("/tomador");
+      return;
+    }
+
+    setPayingLabel(null);
   }
 
   function openEdit() {
@@ -585,6 +675,9 @@ export default function PedidoActivo() {
                     <div style={s.itemLeft}>
                       <p style={s.itemName}>
                         {item.quantity}x {item.products?.name}
+                        {item.subcuenta && (
+                          <span style={s.subcuentaTag}> · {item.subcuenta}</span>
+                        )}
                       </p>
                       {item.note && <p style={s.itemNote}>{item.note}</p>}
                     </div>
@@ -649,7 +742,10 @@ export default function PedidoActivo() {
             {order.status === "cerrado" && (
               <div style={s.closedBox}>
                 <p style={s.closedTxt}>
-                  Pedido cerrado · {order.payment_method}
+                  Pedido cerrado ·{" "}
+                  {order.payment_method === "dividido"
+                    ? "cuenta dividida"
+                    : order.payment_method}
                 </p>
                 {order.payment_method === "efectivo" && order.cash_received && (
                   <p style={s.closedSub}>
@@ -663,109 +759,303 @@ export default function PedidoActivo() {
                     Transferencia: {formatPrice(order.transfer_amount)}
                   </p>
                 )}
+                {order.payment_method === "dividido" &&
+                  payments.map((p) => (
+                    <p key={p.id} style={s.closedSub}>
+                      {p.subcuenta}: {formatPrice(p.amount)} ·{" "}
+                      {p.payment_method === "mixto"
+                        ? `mixto (efvo ${formatPrice(p.cash_amount)} / transf ${formatPrice(p.transfer_amount)})`
+                        : p.payment_method}
+                    </p>
+                  ))}
               </div>
             )}
 
             {order.status !== "cerrado" && (
               <>
                 <div style={s.divider} />
-                <p style={s.sectionLabel}>Forma de pago</p>
-                <div style={s.methodRow}>
-                  {["efectivo", "transferencia", "mixto"].map((m) => (
+
+                {isSplit() ? (
+                  <>
+                    <p style={s.sectionLabel}>Cobrar por cuenta</p>
+                    {subcuentaLabels().map((label) => {
+                      const paid = paymentFor(label);
+                      const subtotal = subcuentaSubtotal(label);
+                      const m = subMethod[label] ?? "efectivo";
+
+                      if (paid)
+                        return (
+                          <div key={label} style={s.subPaidBox}>
+                            <span>
+                              {label} · {formatPrice(subtotal)}
+                            </span>
+                            <span style={s.subPaidTag}>
+                              ✓{" "}
+                              {paid.payment_method === "mixto"
+                                ? "mixto"
+                                : paid.payment_method}
+                            </span>
+                          </div>
+                        );
+
+                      return (
+                        <div key={label} style={s.subPayCard}>
+                          <div style={s.subPayHeader}>
+                            <span style={s.subPayLabel}>{label}</span>
+                            <span style={s.subPayTotal}>
+                              {formatPrice(subtotal)}
+                            </span>
+                          </div>
+                          <div style={s.methodRow}>
+                            {["efectivo", "transferencia", "mixto"].map((mm) => (
+                              <button
+                                key={mm}
+                                style={{
+                                  ...s.methodBtn,
+                                  backgroundColor:
+                                    m === mm ? "#EAF3DE" : "#FFF",
+                                  borderColor:
+                                    m === mm ? "#3B6D11" : "#DDDDCC",
+                                  color: m === mm ? "#3B6D11" : "#666660",
+                                  fontWeight: m === mm ? 600 : 400,
+                                }}
+                                onClick={() =>
+                                  setSubMethod((prev) => ({
+                                    ...prev,
+                                    [label]: mm,
+                                  }))
+                                }
+                              >
+                                {mm === "efectivo"
+                                  ? "$ Efectivo"
+                                  : mm === "transferencia"
+                                    ? "⇄ Transferencia"
+                                    : "◐ Mixto"}
+                              </button>
+                            ))}
+                          </div>
+
+                          {m === "efectivo" && (
+                            <>
+                              <input
+                                style={s.cashInput}
+                                placeholder="Efectivo recibido: $0"
+                                type="number"
+                                value={subCashReceived[label] ?? ""}
+                                onChange={(e) =>
+                                  setSubCashReceived((prev) => ({
+                                    ...prev,
+                                    [label]: e.target.value,
+                                  }))
+                                }
+                              />
+                              {(subCashReceived[label] ?? "") !== "" &&
+                                subVuelto(label) >= 0 && (
+                                  <div style={s.vueltoBox}>
+                                    <span style={s.vueltoLabel}>Vuelto</span>
+                                    <span style={s.vueltoVal}>
+                                      {formatPrice(subVuelto(label))}
+                                    </span>
+                                  </div>
+                                )}
+                              {(subCashReceived[label] ?? "") !== "" &&
+                                subVuelto(label) < 0 && (
+                                  <div
+                                    style={{
+                                      ...s.vueltoBox,
+                                      backgroundColor: "#FCEBEB",
+                                    }}
+                                  >
+                                    <span
+                                      style={{
+                                        ...s.vueltoLabel,
+                                        color: "#A32D2D",
+                                      }}
+                                    >
+                                      Falta
+                                    </span>
+                                    <span
+                                      style={{
+                                        ...s.vueltoVal,
+                                        color: "#A32D2D",
+                                      }}
+                                    >
+                                      {formatPrice(Math.abs(subVuelto(label)))}
+                                    </span>
+                                  </div>
+                                )}
+                            </>
+                          )}
+
+                          {m === "mixto" && (
+                            <>
+                              <input
+                                style={s.cashInput}
+                                placeholder="Monto en efectivo: $0"
+                                type="number"
+                                value={subMixedCash[label] ?? ""}
+                                onChange={(e) =>
+                                  setSubMixedCash((prev) => ({
+                                    ...prev,
+                                    [label]: e.target.value,
+                                  }))
+                                }
+                              />
+                              {subMixedCashNum(label) > subtotal ? (
+                                <div
+                                  style={{
+                                    ...s.vueltoBox,
+                                    backgroundColor: "#FCEBEB",
+                                  }}
+                                >
+                                  <span
+                                    style={{
+                                      ...s.vueltoLabel,
+                                      color: "#A32D2D",
+                                    }}
+                                  >
+                                    El efectivo supera el total de esta cuenta
+                                  </span>
+                                </div>
+                              ) : (
+                                <div style={s.vueltoBox}>
+                                  <span style={s.vueltoLabel}>
+                                    Transferencia
+                                  </span>
+                                  <span style={s.vueltoVal}>
+                                    {formatPrice(subMixedTransferNum(label))}
+                                  </span>
+                                </div>
+                              )}
+                            </>
+                          )}
+
+                          <button
+                            style={{
+                              ...s.btnPrimary,
+                              opacity: payingLabel ? 0.7 : 1,
+                              cursor: payingLabel ? "not-allowed" : "pointer",
+                            }}
+                            disabled={
+                              payingLabel !== null ||
+                              (m === "efectivo" && subVuelto(label) < 0) ||
+                              (m === "mixto" &&
+                                ((subMixedCash[label] ?? "") === "" ||
+                                  subMixedCashNum(label) > subtotal))
+                            }
+                            onClick={() => cobrarSubcuenta(label)}
+                          >
+                            {payingLabel === label
+                              ? "Registrando..."
+                              : `Cobrar ${label}`}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </>
+                ) : (
+                  <>
+                    <p style={s.sectionLabel}>Forma de pago</p>
+                    <div style={s.methodRow}>
+                      {["efectivo", "transferencia", "mixto"].map((m) => (
+                        <button
+                          key={m}
+                          style={{
+                            ...s.methodBtn,
+                            backgroundColor: method === m ? "#EAF3DE" : "#FFF",
+                            borderColor: method === m ? "#3B6D11" : "#DDDDCC",
+                            color: method === m ? "#3B6D11" : "#666660",
+                            fontWeight: method === m ? 600 : 400,
+                          }}
+                          onClick={() => setMethod(m)}
+                        >
+                          {m === "efectivo"
+                            ? "$ Efectivo"
+                            : m === "transferencia"
+                              ? "⇄ Transferencia"
+                              : "◐ Mixto"}
+                        </button>
+                      ))}
+                    </div>
+
+                    {method === "efectivo" && (
+                      <>
+                        <input
+                          style={s.cashInput}
+                          placeholder="Efectivo recibido: $0"
+                          value={cashReceived}
+                          onChange={(e) => setCashReceived(e.target.value)}
+                          type="number"
+                        />
+                        {cashReceived !== "" && vuelto() >= 0 && (
+                          <div style={s.vueltoBox}>
+                            <span style={s.vueltoLabel}>Vuelto</span>
+                            <span style={s.vueltoVal}>
+                              {formatPrice(vuelto())}
+                            </span>
+                          </div>
+                        )}
+                        {cashReceived !== "" && vuelto() < 0 && (
+                          <div
+                            style={{ ...s.vueltoBox, backgroundColor: "#FCEBEB" }}
+                          >
+                            <span style={{ ...s.vueltoLabel, color: "#A32D2D" }}>
+                              Falta
+                            </span>
+                            <span style={{ ...s.vueltoVal, color: "#A32D2D" }}>
+                              {formatPrice(Math.abs(vuelto()))}
+                            </span>
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    {method === "mixto" && (
+                      <>
+                        <input
+                          style={s.cashInput}
+                          placeholder="Monto en efectivo: $0"
+                          value={mixedCash}
+                          onChange={(e) => setMixedCash(e.target.value)}
+                          type="number"
+                        />
+                        {mixedCashNum() > order.total ? (
+                          <div
+                            style={{ ...s.vueltoBox, backgroundColor: "#FCEBEB" }}
+                          >
+                            <span style={{ ...s.vueltoLabel, color: "#A32D2D" }}>
+                              El efectivo supera el total
+                            </span>
+                          </div>
+                        ) : (
+                          <div style={s.vueltoBox}>
+                            <span style={s.vueltoLabel}>Transferencia</span>
+                            <span style={s.vueltoVal}>
+                              {formatPrice(mixedTransferNum())}
+                            </span>
+                          </div>
+                        )}
+                      </>
+                    )}
+
                     <button
-                      key={m}
                       style={{
-                        ...s.methodBtn,
-                        backgroundColor: method === m ? "#EAF3DE" : "#FFF",
-                        borderColor: method === m ? "#3B6D11" : "#DDDDCC",
-                        color: method === m ? "#3B6D11" : "#666660",
-                        fontWeight: method === m ? 600 : 400,
+                        ...s.btnPrimary,
+                        opacity: saving ? 0.7 : 1,
+                        cursor: saving ? "not-allowed" : "pointer",
                       }}
-                      onClick={() => setMethod(m)}
+                      disabled={
+                        saving ||
+                        (method === "efectivo" && vuelto() < 0) ||
+                        (method === "mixto" &&
+                          (mixedCash === "" || mixedCashNum() > order.total))
+                      }
+                      onClick={registrarPago}
                     >
-                      {m === "efectivo"
-                        ? "$ Efectivo"
-                        : m === "transferencia"
-                          ? "⇄ Transferencia"
-                          : "◐ Mixto"}
+                      {saving ? "Registrando..." : "Registrar pago y cerrar"}
                     </button>
-                  ))}
-                </div>
-
-                {method === "efectivo" && (
-                  <>
-                    <input
-                      style={s.cashInput}
-                      placeholder="Efectivo recibido: $0"
-                      value={cashReceived}
-                      onChange={(e) => setCashReceived(e.target.value)}
-                      type="number"
-                    />
-                    {cashReceived !== "" && vuelto() >= 0 && (
-                      <div style={s.vueltoBox}>
-                        <span style={s.vueltoLabel}>Vuelto</span>
-                        <span style={s.vueltoVal}>{formatPrice(vuelto())}</span>
-                      </div>
-                    )}
-                    {cashReceived !== "" && vuelto() < 0 && (
-                      <div
-                        style={{ ...s.vueltoBox, backgroundColor: "#FCEBEB" }}
-                      >
-                        <span style={{ ...s.vueltoLabel, color: "#A32D2D" }}>
-                          Falta
-                        </span>
-                        <span style={{ ...s.vueltoVal, color: "#A32D2D" }}>
-                          {formatPrice(Math.abs(vuelto()))}
-                        </span>
-                      </div>
-                    )}
                   </>
                 )}
-
-                {method === "mixto" && (
-                  <>
-                    <input
-                      style={s.cashInput}
-                      placeholder="Monto en efectivo: $0"
-                      value={mixedCash}
-                      onChange={(e) => setMixedCash(e.target.value)}
-                      type="number"
-                    />
-                    {mixedCashNum() > order.total ? (
-                      <div
-                        style={{ ...s.vueltoBox, backgroundColor: "#FCEBEB" }}
-                      >
-                        <span style={{ ...s.vueltoLabel, color: "#A32D2D" }}>
-                          El efectivo supera el total
-                        </span>
-                      </div>
-                    ) : (
-                      <div style={s.vueltoBox}>
-                        <span style={s.vueltoLabel}>Transferencia</span>
-                        <span style={s.vueltoVal}>
-                          {formatPrice(mixedTransferNum())}
-                        </span>
-                      </div>
-                    )}
-                  </>
-                )}
-
-                <button
-                  style={{
-                    ...s.btnPrimary,
-                    opacity: saving ? 0.7 : 1,
-                    cursor: saving ? "not-allowed" : "pointer",
-                  }}
-                  disabled={
-                    saving ||
-                    (method === "efectivo" && vuelto() < 0) ||
-                    (method === "mixto" &&
-                      (mixedCash === "" || mixedCashNum() > order.total))
-                  }
-                  onClick={registrarPago}
-                >
-                  {saving ? "Registrando..." : "Registrar pago y cerrar"}
-                </button>
               </>
             )}
           </>
@@ -874,6 +1164,11 @@ const s = {
     fontStyle: "italic",
     fontWeight: 500,
   },
+  subcuentaTag: {
+    fontSize: 11,
+    fontWeight: 500,
+    color: "#185FA5",
+  },
   noteInput: {
     width: "100%",
     border: "0.5px solid #DDDDCC",
@@ -967,6 +1262,35 @@ const s = {
     gap: 8,
     marginBottom: 12,
   },
+  subPayCard: {
+    border: "0.5px solid #DDDDCC",
+    borderRadius: 8,
+    padding: "10px 12px",
+    marginBottom: 10,
+    backgroundColor: "#FFF",
+  },
+  subPayHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    fontSize: 13,
+    fontWeight: 600,
+    color: "#1A1A1A",
+    marginBottom: 8,
+  },
+  subPayLabel: { color: "#1A1A1A" },
+  subPayTotal: { color: "#1A1A1A" },
+  subPaidBox: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: "8px 12px",
+    marginBottom: 8,
+    backgroundColor: "#EAF3DE",
+    borderRadius: 8,
+    fontSize: 13,
+    color: "#3B6D11",
+  },
+  subPaidTag: { fontWeight: 600, textTransform: "capitalize" },
   methodBtn: {
     border: "0.5px solid",
     borderRadius: 8,

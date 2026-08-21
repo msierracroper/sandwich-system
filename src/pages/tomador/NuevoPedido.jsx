@@ -32,8 +32,9 @@ export default function NuevoPedido() {
   const [tipo, setTipo] = useState(tableId ? "mesa" : "para_llevar");
   const [categoria, setCategoria] = useState("sandwich");
   const [products, setProducts] = useState([]);
-  const [items, setItems] = useState({}); // { productId: quantity }
-  const [notes, setNotes] = useState({}); // { productId: note }
+  const [subcuentas, setSubcuentas] = useState(["Cuenta 1"]);
+  const [activeSubcuenta, setActiveSubcuenta] = useState("Cuenta 1");
+  const [lines, setLines] = useState([]); // [{ id, productId, qty, note, subcuenta }]
   const [pedidoNote, setPedidoNote] = useState("");
   const [address, setAddress] = useState("");
   const [customerName, setCustomerName] = useState("");
@@ -62,40 +63,80 @@ export default function NuevoPedido() {
     return products.filter((p) => p.category === categoria);
   }
 
-  function addItem(productId) {
-    setItems((prev) => ({ ...prev, [productId]: (prev[productId] ?? 0) + 1 }));
+  function lineKey(productId, subcuenta) {
+    return `${productId}::${subcuenta}`;
   }
 
-  function removeItem(productId) {
-    setItems((prev) => {
-      const qty = (prev[productId] ?? 0) - 1;
-      if (qty <= 0) {
-        const next = { ...prev };
-        delete next[productId];
-        return next;
+  function addItem(productId) {
+    const key = lineKey(productId, activeSubcuenta);
+    setLines((prev) => {
+      const existing = prev.find((l) => l.id === key);
+      if (existing) {
+        return prev.map((l) => (l.id === key ? { ...l, qty: l.qty + 1 } : l));
       }
-      return { ...prev, [productId]: qty };
+      return [
+        ...prev,
+        { id: key, productId, qty: 1, note: "", subcuenta: activeSubcuenta },
+      ];
     });
   }
 
+  function removeItem(productId) {
+    const key = lineKey(productId, activeSubcuenta);
+    setLines((prev) => {
+      const existing = prev.find((l) => l.id === key);
+      if (!existing) return prev;
+      if (existing.qty <= 1) return prev.filter((l) => l.id !== key);
+      return prev.map((l) => (l.id === key ? { ...l, qty: l.qty - 1 } : l));
+    });
+  }
+
+  function qtyFor(productId) {
+    return lines.find((l) => l.id === lineKey(productId, activeSubcuenta))?.qty ?? 0;
+  }
+
+  function noteFor(productId) {
+    return (
+      lines.find((l) => l.id === lineKey(productId, activeSubcuenta))?.note ?? ""
+    );
+  }
+
+  function setNoteFor(productId, note) {
+    const key = lineKey(productId, activeSubcuenta);
+    setLines((prev) => prev.map((l) => (l.id === key ? { ...l, note } : l)));
+  }
+
+  function setNoteForLine(lineId, note) {
+    setLines((prev) => prev.map((l) => (l.id === lineId ? { ...l, note } : l)));
+  }
+
+  function addSubcuenta() {
+    const next = `Cuenta ${subcuentas.length + 1}`;
+    setSubcuentas((prev) => [...prev, next]);
+    setActiveSubcuenta(next);
+  }
+
   function totalItems() {
-    return Object.values(items).reduce((a, b) => a + b, 0);
+    return lines.reduce((a, l) => a + l.qty, 0);
+  }
+
+  function linesWithProduct() {
+    return lines
+      .filter((l) => l.qty > 0)
+      .map((l) => ({ ...l, product: products.find((p) => p.id === l.productId) }));
   }
 
   function totalPrice() {
-    return Object.entries(items).reduce((acc, [id, qty]) => {
-      const p = products.find((p) => p.id === id);
-      return acc + (p?.price ?? 0) * qty;
-    }, 0);
+    return linesWithProduct().reduce(
+      (acc, l) => acc + (l.product?.price ?? 0) * l.qty,
+      0,
+    );
   }
 
-  function selectedItems() {
-    return Object.entries(items)
-      .filter(([, qty]) => qty > 0)
-      .map(([id, qty]) => ({
-        product: products.find((p) => p.id === id),
-        qty,
-      }));
+  function subcuentaSubtotal(label) {
+    return linesWithProduct()
+      .filter((l) => l.subcuenta === label)
+      .reduce((acc, l) => acc + (l.product?.price ?? 0) * l.qty, 0);
   }
 
   function formatPrice(n) {
@@ -127,14 +168,16 @@ export default function NuevoPedido() {
       return;
     }
 
-    const orderItemsData = selectedItems().map(({ product, qty }) => ({
+    const splitBill = subcuentas.length > 1;
+    const orderItemsData = linesWithProduct().map((l) => ({
       order_id: order.id,
-      product_id: product.id,
-      quantity: qty,
-      unit_price: product.price,
-      station: product.station,
+      product_id: l.productId,
+      quantity: l.qty,
+      unit_price: l.product.price,
+      station: l.product.station,
       prep_status: "pendiente",
-      note: notes[product.id] || null,
+      note: l.note || null,
+      subcuenta: splitBill ? l.subcuenta : null,
     }));
 
     const { error: itemsError } = await supabase
@@ -214,6 +257,36 @@ export default function NuevoPedido() {
 
           <div style={s.divider} />
 
+          {/* Cuentas (division de pedido, ej. grupos grandes en mesa) */}
+          <p style={s.sectionLabel}>Cuenta</p>
+          <div style={s.catRow}>
+            {subcuentas.map((label) => (
+              <button
+                key={label}
+                style={{
+                  ...s.catBtn,
+                  backgroundColor: activeSubcuenta === label ? "#E6F1FB" : "#FFF",
+                  borderColor: activeSubcuenta === label ? "#378ADD" : "#DDDDCC",
+                  color: activeSubcuenta === label ? "#185FA5" : "#666660",
+                  fontWeight: activeSubcuenta === label ? 600 : 400,
+                }}
+                onClick={() => setActiveSubcuenta(label)}
+              >
+                {label}
+              </button>
+            ))}
+            <button style={s.addSubcuentaBtn} onClick={addSubcuenta}>
+              + cuenta
+            </button>
+          </div>
+          {subcuentas.length > 1 && (
+            <p style={s.subcuentaHint}>
+              Los productos que agregues quedan en <strong>{activeSubcuenta}</strong>
+            </p>
+          )}
+
+          <div style={s.divider} />
+
           {/* Categorias */}
           <div style={s.catRow}>
             {CATEGORIAS.map((cat) => (
@@ -248,20 +321,18 @@ export default function NuevoPedido() {
                   <button style={s.qtyBtn} onClick={() => removeItem(p.id)}>
                     −
                   </button>
-                  <span style={s.qtyNum}>{items[p.id] ?? 0}</span>
+                  <span style={s.qtyNum}>{qtyFor(p.id)}</span>
                   <button style={s.qtyBtn} onClick={() => addItem(p.id)}>
                     +
                   </button>
                 </div>
                 {/* Nota por item — aparece solo cuando tiene cantidad */}
-                {(items[p.id] ?? 0) > 0 && (
+                {qtyFor(p.id) > 0 && (
                   <input
                     style={s.noteInput}
                     placeholder={`Nota para ${p.name} (ej: sin azucar, sin cebolla...)`}
-                    value={notes[p.id] ?? ""}
-                    onChange={(e) =>
-                      setNotes((prev) => ({ ...prev, [p.id]: e.target.value }))
-                    }
+                    value={noteFor(p.id)}
+                    onChange={(e) => setNoteFor(p.id, e.target.value)}
                   />
                 )}
               </div>
@@ -338,6 +409,8 @@ export default function NuevoPedido() {
     );
 
   // ── PASO 2: resumen ────────────────────────────────────────────────────────
+  const splitBill = subcuentas.length > 1;
+
   return (
     <div style={s.page}>
       <div style={s.topbar}>
@@ -369,30 +442,41 @@ export default function NuevoPedido() {
       </div>
 
       <div style={s.body}>
-        {/* Items */}
+        {/* Items, agrupados por cuenta si se dividio */}
         <div style={s.resumenBox}>
-          {selectedItems().map(({ product, qty }) => (
-            <div key={product.id}>
-              <div style={s.resumenRow}>
-                <span>
-                  {qty}x {product.name}
-                </span>
-                <span>{formatPrice(product.price * qty)}</span>
+          {subcuentas.map((label) => {
+            const groupLines = linesWithProduct().filter(
+              (l) => l.subcuenta === label,
+            );
+            if (groupLines.length === 0) return null;
+            return (
+              <div key={label}>
+                {splitBill && (
+                  <div style={s.subcuentaHeader}>
+                    <span>{label}</span>
+                    <span>{formatPrice(subcuentaSubtotal(label))}</span>
+                  </div>
+                )}
+                {groupLines.map((line) => (
+                  <div key={line.id}>
+                    <div style={s.resumenRow}>
+                      <span>
+                        {line.qty}x {line.product.name}
+                      </span>
+                      <span>{formatPrice(line.product.price * line.qty)}</span>
+                    </div>
+                    {/* Nota por item */}
+                    <input
+                      style={s.noteInput}
+                      placeholder={`Nota para ${line.product.name} (opcional)`}
+                      value={line.note}
+                      onChange={(e) => setNoteForLine(line.id, e.target.value)}
+                    />
+                  </div>
+                ))}
               </div>
-              {/* Nota por item */}
-              <input
-                style={s.noteInput}
-                placeholder={`Nota para ${product.name} (opcional)`}
-                value={notes[product.id] ?? ""}
-                onChange={(e) =>
-                  setNotes((prev) => ({
-                    ...prev,
-                    [product.id]: e.target.value,
-                  }))
-                }
-              />
-            </div>
-          ))}
+            );
+          })}
           <div style={s.divider} />
           <div style={s.resumenTotal}>
             <span>Total</span>
@@ -409,8 +493,8 @@ export default function NuevoPedido() {
                 ? "Para llevar"
                 : "Domicilio"}
           </div>
-          {selectedItems().some((i) => i.product.station === "caliente") &&
-            selectedItems().some((i) => i.product.station === "frio") && (
+          {linesWithProduct().some((l) => l.product?.station === "caliente") &&
+            linesWithProduct().some((l) => l.product?.station === "frio") && (
               <div
                 style={{
                   ...s.badge,
@@ -538,7 +622,7 @@ const s = {
     fontFamily: "sans-serif",
   },
   divider: { height: "0.5px", backgroundColor: "#DDDDCC", margin: "10px 0" },
-  catRow: { display: "flex", gap: 6, marginBottom: 12 },
+  catRow: { display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" },
   catBtn: {
     flex: 1,
     border: "0.5px solid",
@@ -547,6 +631,32 @@ const s = {
     fontSize: 12,
     cursor: "pointer",
     fontFamily: "sans-serif",
+  },
+  addSubcuentaBtn: {
+    border: "0.5px dashed #B0AFA5",
+    borderRadius: 8,
+    padding: "7px 10px",
+    fontSize: 12,
+    cursor: "pointer",
+    fontFamily: "sans-serif",
+    color: "#666660",
+    backgroundColor: "#FFF",
+    whiteSpace: "nowrap",
+  },
+  subcuentaHint: {
+    fontSize: 11,
+    color: "#185FA5",
+    margin: "0 0 12px",
+  },
+  subcuentaHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    fontSize: 12,
+    fontWeight: 600,
+    color: "#185FA5",
+    padding: "6px 0 4px",
+    borderBottom: "0.5px solid #DDDDCC",
+    marginBottom: 4,
   },
   prodList: {
     display: "flex",
