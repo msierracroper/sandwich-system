@@ -8,6 +8,7 @@ const STATUS_LABEL = {
   abierto: { label: "Abierto", bg: "#E6F1FB", color: "#185FA5" },
   en_preparacion: { label: "Preparando", bg: "#FAEEDA", color: "#854F0B" },
   listo: { label: "Listo", bg: "#EAF3DE", color: "#3B6D11" },
+  entregado: { label: "Entregado", bg: "#E6F1FB", color: "#185FA5" },
   cerrado: { label: "Cerrado", bg: "#F1EFE8", color: "#444441" },
 };
 
@@ -53,7 +54,9 @@ export default function Pedidos() {
     });
     const { data } = await supabase
       .from("orders")
-      .select("*, tables(name), users!orders_user_id_fkey(name)")
+      .select(
+        "*, tables(name), users!orders_user_id_fkey(name), domiciliario:users!orders_delivered_by_fkey(name)",
+      )
       .gte("created_at", today + "T00:00:00")
       .lte("created_at", today + "T23:59:59")
       .order("created_at", { ascending: false });
@@ -108,7 +111,9 @@ export default function Pedidos() {
     }
     const { data: updated } = await supabase
       .from("orders")
-      .select("*, tables(name), users!orders_user_id_fkey(name)")
+      .select(
+        "*, tables(name), users!orders_user_id_fkey(name), domiciliario:users!orders_delivered_by_fkey(name)",
+      )
       .eq("id", selected.id)
       .single();
     setSelected(updated);
@@ -322,6 +327,7 @@ export default function Pedidos() {
               ["abierto", "Abiertos"],
               ["en_preparacion", "Preparando"],
               ["listo", "Listos"],
+              ["entregado", "Entregados"],
               ["cerrado", "Cerrados"],
             ].map(([val, lbl]) => (
               <button
@@ -802,6 +808,7 @@ export default function Pedidos() {
                       ["abierto", "Abierto"],
                       ["en_preparacion", "En preparacion"],
                       ["listo", "Listo"],
+                      ["entregado", "Entregado"],
                       ["cerrado", "Cerrado"],
                     ].map(([st, lbl]) => {
                       const stInfo = STATUS_LABEL[st];
@@ -856,11 +863,21 @@ export default function Pedidos() {
                     </p>
                   )}
                   {selected.payment_method && (
-                    <p style={{ margin: 0 }}>
+                    <p style={{ margin: selected.domiciliario ? "0 0 4px" : 0 }}>
                       <span style={s.noteLabel}>Medio de pago: </span>
                       {selected.payment_method === "efectivo"
                         ? "Efectivo"
-                        : "Transferencia"}
+                        : selected.payment_method === "mixto"
+                          ? "Mixto"
+                          : selected.payment_method === "dividido"
+                            ? "Cuenta dividida"
+                            : "Transferencia"}
+                    </p>
+                  )}
+                  {selected.domiciliario && (
+                    <p style={{ margin: 0 }}>
+                      <span style={s.noteLabel}>Entregado por: </span>
+                      {selected.domiciliario.name}
                     </p>
                   )}
                 </div>

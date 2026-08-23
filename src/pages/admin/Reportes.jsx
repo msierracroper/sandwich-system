@@ -48,6 +48,11 @@ export default function Reportes() {
   const [statsHasta, setStatsHasta] = useState("");
   const [missingDays, setMissingDays] = useState([]);
   const [loadingMissing, setLoadingMissing] = useState(false);
+  const [domTab, setDomTab] = useState("semana");
+  const [domDesde, setDomDesde] = useState("");
+  const [domHasta, setDomHasta] = useState("");
+  const [domiciliosData, setDomiciliosData] = useState(null);
+  const [loadingDomicilios, setLoadingDomicilios] = useState(false);
 
   async function loadDay(dateStr) {
     setLoading(true);
@@ -332,6 +337,76 @@ export default function Reportes() {
     setLoadingStats(false);
   }
 
+  async function loadDomicilios() {
+    setLoadingDomicilios(true);
+    const today = new Date();
+    let from, fromStr, toStr;
+
+    if (domTab === "semana") {
+      from = new Date(today);
+      from.setDate(today.getDate() - 7);
+      fromStr = from.toLocaleDateString("en-CA", {
+        timeZone: "America/Bogota",
+      });
+      toStr = today.toLocaleDateString("en-CA", { timeZone: "America/Bogota" });
+    } else if (domTab === "mes") {
+      from = new Date(today);
+      from.setDate(1);
+      fromStr = from.toLocaleDateString("en-CA", {
+        timeZone: "America/Bogota",
+      });
+      toStr = today.toLocaleDateString("en-CA", { timeZone: "America/Bogota" });
+    } else {
+      // personalizado
+      if (!domDesde || !domHasta) {
+        setLoadingDomicilios(false);
+        return;
+      }
+      fromStr = domDesde;
+      toStr = domHasta;
+    }
+
+    // Los "domicilios" son items de producto (DOMICILIO 3K, 4K, ...) dentro del
+    // pedido, no un cargo aparte — el pago al domiciliario es el precio de ese item.
+    const { data } = await supabase
+      .from("order_items")
+      .select(
+        `
+        quantity, unit_price,
+        products!inner(name),
+        orders!inner(id, status, closed_at, type, delivered_by, domiciliario:users!orders_delivered_by_fkey(name))
+      `,
+      )
+      .eq("orders.status", "cerrado")
+      .eq("orders.type", "domicilio")
+      .gte("orders.closed_at", fromStr + "T00:00:00")
+      .lte("orders.closed_at", toStr + "T23:59:59")
+      .ilike("products.name", "domicilio%");
+
+    const grouped = {};
+    for (const item of data ?? []) {
+      const key = item.orders?.delivered_by ?? "sin_asignar";
+      const name = item.orders?.domiciliario?.name ?? "Sin asignar";
+      const amount = item.unit_price * item.quantity;
+      if (!grouped[key]) grouped[key] = { name, count: 0, total: 0, orders: [] };
+      grouped[key].count += 1;
+      grouped[key].total += amount;
+      grouped[key].orders.push({
+        orderId: item.orders.id,
+        amount,
+        closedAt: item.orders.closed_at,
+      });
+    }
+
+    const list = Object.values(grouped).sort((a, b) => b.total - a.total);
+    setDomiciliosData({
+      list,
+      totalDeliveries: list.reduce((a, p) => a + p.count, 0),
+      totalToPay: list.reduce((a, p) => a + p.total, 0),
+    });
+    setLoadingDomicilios(false);
+  }
+
   // eslint-disable-next-line
   useEffect(() => {
     // eslint-disable-next-line
@@ -355,6 +430,12 @@ export default function Reportes() {
     // eslint-disable-next-line
     if (tab === "estadisticas") loadEstadisticas();
   }, [tab, statsTab, statsDesde, statsHasta]);
+
+  // eslint-disable-next-line
+  useEffect(() => {
+    // eslint-disable-next-line
+    if (tab === "domicilios") loadDomicilios();
+  }, [tab, domTab, domDesde, domHasta]);
 
   async function cerrarDia() {
     setClosing(true);
@@ -462,6 +543,7 @@ export default function Reportes() {
           ["hoy", "Hoy"],
           ["historico", "Histórico"],
           ["estadisticas", "Estadísticas"],
+          ["domicilios", "Domicilios"],
         ].map(([val, lbl]) => (
           <button
             key={val}
@@ -1234,6 +1316,119 @@ export default function Reportes() {
         </div>
       )}
 
+      {/* ── TAB DOMICILIOS ── */}
+      {tab === "domicilios" && (
+        <div style={s.body}>
+          <div style={s.histTabs}>
+            {[
+              ["semana", "Esta semana"],
+              ["mes", "Este mes"],
+              ["personalizado", "Personalizado"],
+            ].map(([val, lbl]) => (
+              <button
+                key={val}
+                style={{
+                  ...s.histTab,
+                  backgroundColor: domTab === val ? "#E6F1FB" : "#FFF",
+                  borderColor: domTab === val ? "#378ADD" : "#DDDDCC",
+                  color: domTab === val ? "#185FA5" : "#666660",
+                  fontWeight: domTab === val ? 600 : 400,
+                }}
+                onClick={() => setDomTab(val)}
+              >
+                {lbl}
+              </button>
+            ))}
+          </div>
+
+          {domTab === "personalizado" && (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 8,
+                marginBottom: 12,
+              }}
+            >
+              <div>
+                <p style={{ fontSize: 11, color: "#666660", margin: "0 0 4px" }}>
+                  Desde
+                </p>
+                <input
+                  type="date"
+                  style={s.dateInput}
+                  value={domDesde}
+                  onChange={(e) => setDomDesde(e.target.value)}
+                />
+              </div>
+              <div>
+                <p style={{ fontSize: 11, color: "#666660", margin: "0 0 4px" }}>
+                  Hasta
+                </p>
+                <input
+                  type="date"
+                  style={s.dateInput}
+                  value={domHasta}
+                  onChange={(e) => setDomHasta(e.target.value)}
+                />
+              </div>
+            </div>
+          )}
+
+          {loadingDomicilios ? (
+            <p style={s.loadTxt}>Calculando...</p>
+          ) : !domiciliosData || domiciliosData.list.length === 0 ? (
+            <p style={s.loadTxt}>No hay domicilios entregados en este período</p>
+          ) : (
+            <>
+              <div style={s.summaryCard}>
+                <p style={s.statLabel}>Total a pagar</p>
+                <p style={{ ...s.statVal, fontSize: 22 }}>
+                  {formatPrice(domiciliosData.totalToPay)}
+                </p>
+                <p style={s.statSub}>
+                  {domiciliosData.totalDeliveries} domicilios entregados
+                </p>
+              </div>
+
+              <div style={s.divider} />
+              <p style={s.sectionLabel}>Por domiciliario</p>
+              <div
+                style={{ display: "flex", flexDirection: "column", gap: 8 }}
+              >
+                {domiciliosData.list.map((p) => (
+                  <div key={p.name} style={s.domCard}>
+                    <div style={s.domCardTop}>
+                      <span style={s.domCardName}>{p.name}</span>
+                      <span style={s.domCardTotal}>
+                        {formatPrice(p.total)}
+                      </span>
+                    </div>
+                    <p style={s.domCardMeta}>
+                      {p.count} domicilio{p.count !== 1 ? "s" : ""}
+                    </p>
+                    <div style={s.domOrderList}>
+                      {p.orders.map((o) => (
+                        <div key={o.orderId} style={s.domOrderRow}>
+                          <span>
+                            #{o.orderId.slice(-4).toUpperCase()} ·{" "}
+                            {new Date(o.closedAt).toLocaleDateString("es-CO", {
+                              day: "numeric",
+                              month: "short",
+                            })}
+                          </span>
+                          <span>{formatPrice(o.amount)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
       {/* Modal confirmacion cierre */}
       {showConfirm && (
         <div style={s.overlay} onClick={() => setShowConfirm(false)}>
@@ -1558,6 +1753,34 @@ const s = {
     backgroundColor: "#F1EFE8",
     borderRadius: 8,
     padding: "12px 14px",
+  },
+  domCard: {
+    backgroundColor: "#FFF",
+    border: "0.5px solid #DDDDCC",
+    borderRadius: 8,
+    padding: "10px 12px",
+  },
+  domCardTop: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 2,
+  },
+  domCardName: { fontSize: 14, fontWeight: 600, color: "#1A1A1A" },
+  domCardTotal: { fontSize: 14, fontWeight: 600, color: "#3B6D11" },
+  domCardMeta: { fontSize: 11, color: "#888880", margin: "0 0 8px" },
+  domOrderList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 4,
+    borderTop: "0.5px solid #DDDDCC",
+    paddingTop: 6,
+  },
+  domOrderRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    fontSize: 11,
+    color: "#666660",
   },
   finGrid: {
     display: "grid",

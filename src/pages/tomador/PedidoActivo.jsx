@@ -8,6 +8,7 @@ const STATUS_LABEL = {
   abierto: { label: "Abierto", bg: "#E6F1FB", color: "#185FA5" },
   en_preparacion: { label: "En preparacion", bg: "#FAEEDA", color: "#854F0B" },
   listo: { label: "Listo", bg: "#EAF3DE", color: "#3B6D11" },
+  entregado: { label: "Entregado", bg: "#E6F1FB", color: "#185FA5" },
 };
 
 const PREP_LABEL = {
@@ -355,6 +356,20 @@ export default function PedidoActivo() {
     navigate("/tomador");
   }
 
+  async function cerrarDomicilioEntregado() {
+    setSaving(true);
+    const { error } = await supabase
+      .from("orders")
+      .update({ status: "cerrado", closed_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) {
+      alert("Error al cerrar el pedido");
+      setSaving(false);
+      return;
+    }
+    navigate("/tomador");
+  }
+
   if (loading)
     return (
       <div style={s.loadWrap}>
@@ -375,7 +390,7 @@ export default function PedidoActivo() {
       : order.type === "para_llevar"
         ? "Para llevar"
         : "Domicilio";
-  const canEdit = order.status !== "cerrado";
+  const canEdit = order.status !== "cerrado" && order.status !== "entregado";
   const hasChanges =
     Object.values(editQtys).some((q, i) => q !== items[i]?.quantity) ||
     Object.values(newItems).some((q) => q > 0);
@@ -843,7 +858,35 @@ export default function PedidoActivo() {
               </div>
             )}
 
-            {order.status !== "cerrado" && (
+            {order.status === "entregado" && (
+              <>
+                <div style={s.divider} />
+                <div style={s.closedBox}>
+                  <p style={s.closedTxt}>Pedido entregado</p>
+                  <p style={s.closedSub}>
+                    Medio de pago:{" "}
+                    {order.payment_method === "efectivo"
+                      ? "Efectivo"
+                      : order.payment_method === "mixto"
+                        ? "Mixto"
+                        : "Transferencia"}
+                  </p>
+                </div>
+                <button
+                  style={{
+                    ...s.btnPrimary,
+                    opacity: saving ? 0.7 : 1,
+                    cursor: saving ? "not-allowed" : "pointer",
+                  }}
+                  disabled={saving}
+                  onClick={cerrarDomicilioEntregado}
+                >
+                  {saving ? "Cerrando..." : "Cerrar pedido"}
+                </button>
+              </>
+            )}
+
+            {order.status !== "cerrado" && order.status !== "entregado" && (
               <>
                 <div style={s.divider} />
 

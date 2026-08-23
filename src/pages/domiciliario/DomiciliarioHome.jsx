@@ -16,6 +16,7 @@ function formatPrice(n) {
 }
 
 function DeliveryCard({ order, onUpdate }) {
+  const { profile } = useAuth();
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -27,10 +28,15 @@ function DeliveryCard({ order, onUpdate }) {
 
   async function marcarEntregado() {
     setSaving(true);
-    await supabase
+    const { error } = await supabase
       .from("orders")
-      .update({ status: "cerrado", closed_at: new Date().toISOString() })
+      .update({ status: "entregado", delivered_by: profile.id })
       .eq("id", order.id);
+    if (error) {
+      alert("Error al marcar como entregado");
+      setSaving(false);
+      return;
+    }
     setSaving(false);
     onUpdate();
   }

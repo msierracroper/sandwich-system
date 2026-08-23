@@ -22,6 +22,13 @@ const STATUS_COLOR = {
   },
 };
 
+const OTHER_STATUS_COLOR = {
+  abierto: { bg: "#EAF3DE", color: "#3B6D11", label: "abierto" },
+  en_preparacion: { bg: "#FAEEDA", color: "#854F0B", label: "preparando" },
+  listo: { bg: "#EAF3DE", color: "#3B6D11", label: "listo" },
+  entregado: { bg: "#E6F1FB", color: "#185FA5", label: "entregado · falta cerrar" },
+};
+
 export default function TomadorHome() {
   const { signOut } = useAuth();
   const [tables, setTables] = useState([]);
@@ -35,7 +42,7 @@ export default function TomadorHome() {
       supabase
         .from("orders")
         .select("*, tables(name)")
-        .in("status", ["abierto", "en_preparacion", "listo"]),
+        .in("status", ["abierto", "en_preparacion", "listo", "entregado"]),
     ]);
     setTables(tablesData ?? []);
     setOrders(ordersData ?? []);
@@ -55,7 +62,7 @@ export default function TomadorHome() {
           event: "*",
           schema: "public",
           table: "orders",
-          filter: "status=in.(abierto,en_preparacion,listo)",
+          filter: "status=in.(abierto,en_preparacion,listo,entregado)",
         },
         () => loadData(),
       )
@@ -201,19 +208,11 @@ export default function TomadorHome() {
                   <div
                     style={{
                       ...s.pill,
-                      backgroundColor:
-                        order.status === "en_preparacion"
-                          ? "#FAEEDA"
-                          : "#EAF3DE",
-                      color:
-                        order.status === "en_preparacion"
-                          ? "#854F0B"
-                          : "#3B6D11",
+                      backgroundColor: OTHER_STATUS_COLOR[order.status]?.bg ?? "#EAF3DE",
+                      color: OTHER_STATUS_COLOR[order.status]?.color ?? "#3B6D11",
                     }}
                   >
-                    {order.status === "en_preparacion"
-                      ? "preparando"
-                      : order.status}
+                    {OTHER_STATUS_COLOR[order.status]?.label ?? order.status}
                   </div>
                 </div>
               ))}
