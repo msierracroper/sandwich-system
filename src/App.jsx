@@ -14,6 +14,8 @@ import Usuarios from "./pages/admin/Usuarios";
 import Reportes from "./pages/admin/Reportes";
 import Gastos from "./pages/admin/Gastos";
 import Pedidos from "./pages/admin/Pedidos";
+import Inventario from "./pages/admin/Inventario";
+import Recetas from "./pages/admin/Recetas";
 
 export default function App() {
   return (
@@ -82,6 +84,24 @@ export default function App() {
             element={
               <PrivateRoute roles={["admin"]}>
                 <Pedidos />
+              </PrivateRoute>
+            }
+          />
+
+          <Route
+            path="/admin/inventario"
+            element={
+              <PrivateRoute roles={["admin"]}>
+                <Inventario />
+              </PrivateRoute>
+            }
+          />
+
+          <Route
+            path="/admin/recetas"
+            element={
+              <PrivateRoute roles={["admin"]}>
+                <Recetas />
               </PrivateRoute>
             }
           />

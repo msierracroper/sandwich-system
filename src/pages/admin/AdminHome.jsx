@@ -90,6 +90,18 @@ export default function AdminHome() {
       desc: "Registrar y controlar gastos del negocio",
       path: "/admin/pedidos",
     },
+    {
+      icon: "📦",
+      title: "Inventario",
+      desc: "Controlar insumos y alertas de stock bajo",
+      path: "/admin/inventario",
+    },
+    {
+      icon: "📋",
+      title: "Recetas",
+      desc: "Que insumos lleva cada producto",
+      path: "/admin/recetas",
+    },
   ];
 
   const today = new Date().toLocaleDateString("es-CO", {
