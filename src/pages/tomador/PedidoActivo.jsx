@@ -278,15 +278,37 @@ export default function PedidoActivo() {
     const toDelete = Object.entries(editQtys).filter(([, qty]) => qty === 0);
     const toInsert = Object.entries(newItems).filter(([, qty]) => qty > 0);
 
+    // Si se agrega un item nuevo, o se aumenta la cantidad de uno que ya
+    // estaba listo/en preparacion, hay trabajo nuevo para la cocina.
+    const needsPrep =
+      toInsert.length > 0 ||
+      toUpdate.some(([itemId, qty]) => {
+        const original = items.find((i) => i.id === itemId);
+        return (
+          original &&
+          qty > original.quantity &&
+          original.prep_status !== "pendiente"
+        );
+      });
+
     try {
       // Actualizar cantidades y notas existentes
       await Promise.all(
-        toUpdate.map(([itemId, qty]) =>
-          supabase
+        toUpdate.map(([itemId, qty]) => {
+          const original = items.find((i) => i.id === itemId);
+          const backToPending =
+            original &&
+            qty > original.quantity &&
+            original.prep_status !== "pendiente";
+          return supabase
             .from("order_items")
-            .update({ quantity: qty, note: editNotes[itemId] || null })
-            .eq("id", itemId),
-        ),
+            .update({
+              quantity: qty,
+              note: editNotes[itemId] || null,
+              ...(backToPending ? { prep_status: "pendiente" } : {}),
+            })
+            .eq("id", itemId);
+        }),
       );
 
       // Eliminar items con cantidad 0
@@ -313,10 +335,17 @@ export default function PedidoActivo() {
         await supabase.from("order_items").insert(newOrderItems);
       }
 
-      // Recalcular total y nota general
+      // Recalcular total y nota general — si hay trabajo nuevo para la
+      // cocina y el pedido ya estaba listo, vuelve a en_preparacion
       await supabase
         .from("orders")
-        .update({ total: editTotal, note: editGeneralNote || null })
+        .update({
+          total: editTotal,
+          note: editGeneralNote || null,
+          ...(needsPrep && order.status === "listo"
+            ? { status: "en_preparacion" }
+            : {}),
+        })
         .eq("id", id);
 
       setEditMode(false);

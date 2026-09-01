@@ -23,6 +23,12 @@ const STATION_CONFIG = {
   },
 };
 
+const TYPE_PILL_COLOR = {
+  mesa: { bg: "#E6F1FB", color: "#185FA5" },
+  domicilio: { bg: "#EAF3DE", color: "#3B6D11" },
+  para_llevar: { bg: "#FCEBEB", color: "#A32D2D" },
+};
+
 function timeAgo(dateStr) {
   const diff = Math.floor((Date.now() - new Date(dateStr)) / 1000);
   if (diff < 60) return `hace ${diff}s`;
@@ -105,12 +111,12 @@ function TicketCard({ ticket, onUpdate }) {
         <div
           style={{
             ...s.mesaPill,
-            backgroundColor: ticket.type === "mesa" ? "#E6F1FB" : "#F1EFE8",
+            backgroundColor: TYPE_PILL_COLOR[ticket.type]?.bg ?? "#F1EFE8",
           }}
         >
           <span
             style={{
-              color: ticket.type === "mesa" ? "#185FA5" : "#444441",
+              color: TYPE_PILL_COLOR[ticket.type]?.color ?? "#444441",
               fontSize: 13,
               fontWeight: 700,
             }}
@@ -494,7 +500,8 @@ const s = {
   },
   emptyTxt: { fontSize: 14, color: "#888880", margin: 0 },
   timerBox: {
-    fontSize: 1,
+    fontSize: 11,
+    fontWeight: 600,
     color: "#854F0B",
     backgroundColor: "#FAEEDA",
     borderRadius: 6,

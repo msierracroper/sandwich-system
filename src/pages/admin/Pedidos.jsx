@@ -193,14 +193,36 @@ export default function Pedidos() {
     const toDelete = Object.entries(editQtys).filter(([, qty]) => qty === 0);
     const toInsert = Object.entries(newItems).filter(([, qty]) => qty > 0);
 
+    // Si se agrega un item nuevo, o se aumenta la cantidad de uno que ya
+    // estaba listo/en preparacion, hay trabajo nuevo para la cocina.
+    const needsPrep =
+      toInsert.length > 0 ||
+      toUpdate.some(([itemId, qty]) => {
+        const original = items.find((i) => i.id === itemId);
+        return (
+          original &&
+          qty > original.quantity &&
+          original.prep_status !== "pendiente"
+        );
+      });
+
     try {
       await Promise.all(
-        toUpdate.map(([itemId, qty]) =>
-          supabase
+        toUpdate.map(([itemId, qty]) => {
+          const original = items.find((i) => i.id === itemId);
+          const backToPending =
+            original &&
+            qty > original.quantity &&
+            original.prep_status !== "pendiente";
+          return supabase
             .from("order_items")
-            .update({ quantity: qty, note: editNotes[itemId] || null })
-            .eq("id", itemId),
-        ),
+            .update({
+              quantity: qty,
+              note: editNotes[itemId] || null,
+              ...(backToPending ? { prep_status: "pendiente" } : {}),
+            })
+            .eq("id", itemId);
+        }),
       );
       await Promise.all(
         toDelete.map(([itemId]) =>
@@ -222,9 +244,15 @@ export default function Pedidos() {
         });
         await supabase.from("order_items").insert(newOrderItems);
       }
+      const newStatus =
+        needsPrep && selected.status === "listo" ? "en_preparacion" : null;
       await supabase
         .from("orders")
-        .update({ total: editTotal, note: editGeneralNote || null })
+        .update({
+          total: editTotal,
+          note: editGeneralNote || null,
+          ...(newStatus ? { status: newStatus } : {}),
+        })
         .eq("id", selected.id);
       setEditMode(false);
       setEditQtys({});
@@ -235,11 +263,12 @@ export default function Pedidos() {
       setShowAddProducts(false);
       await loadOrderItems(selected.id);
       await loadOrders();
-      // Actualizar el pedido seleccionado con el nuevo total y nota
+      // Actualizar el pedido seleccionado con el nuevo total, nota y estado
       setSelected((prev) => ({
         ...prev,
         total: editTotal,
         note: editGeneralNote || null,
+        status: newStatus ?? prev.status,
       }));
     } catch (e) {
       alert("Error al guardar cambios");
