@@ -191,6 +191,16 @@ export default function TomadorHome() {
                         ? "Para llevar"
                         : "Domicilio"}{" "}
                       #{order.id.slice(-4).toUpperCase()}
+                      {order.prepaid && (
+                        <span style={s.prepaidBadge}>
+                          ${" "}
+                          {order.payment_method === "efectivo"
+                            ? "Efectivo"
+                            : order.payment_method === "mixto"
+                              ? "Mixto"
+                              : "Transferencia"}
+                        </span>
+                      )}
                     </p>
                     {order.note && (
                       <p
@@ -326,6 +336,15 @@ const s = {
     margin: "0 0 2px",
   },
   otherMeta: { fontSize: 11, color: "#666660", margin: 0 },
+  prepaidBadge: {
+    fontSize: 10,
+    fontWeight: 600,
+    color: "#3B6D11",
+    backgroundColor: "#EAF3DE",
+    padding: "1px 6px",
+    borderRadius: 20,
+    marginLeft: 6,
+  },
   pill: {
     fontSize: 11,
     fontWeight: 500,

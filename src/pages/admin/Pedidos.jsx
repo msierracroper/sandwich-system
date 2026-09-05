@@ -399,6 +399,16 @@ export default function Pedidos() {
                       <p style={s.orderCardTitle}>
                         {orderLabel(order)} · #
                         {order.id.slice(-4).toUpperCase()}
+                        {order.prepaid && (
+                          <span style={s.prepaidBadge}>
+                            ${" "}
+                            {order.payment_method === "efectivo"
+                              ? "Efectivo"
+                              : order.payment_method === "mixto"
+                                ? "Mixto"
+                                : "Transferencia"}
+                          </span>
+                        )}
                       </p>
                       <div
                         style={{
@@ -437,6 +447,16 @@ export default function Pedidos() {
                   <p style={s.detailTitle}>
                     {orderLabel(selected)} · #
                     {selected.id.slice(-4).toUpperCase()}
+                    {selected.prepaid && (
+                      <span style={s.prepaidBadge}>
+                        ${" "}
+                        {selected.payment_method === "efectivo"
+                          ? "Efectivo"
+                          : selected.payment_method === "mixto"
+                            ? "Mixto"
+                            : "Transferencia"}
+                      </span>
+                    )}
                   </p>
                   <p style={s.detailSub}>
                     {formatTime(selected.created_at)} ·{" "}
@@ -1005,6 +1025,15 @@ const s = {
     fontWeight: 500,
     color: "#1A1A1A",
     margin: 0,
+  },
+  prepaidBadge: {
+    fontSize: 10,
+    fontWeight: 600,
+    color: "#3B6D11",
+    backgroundColor: "#EAF3DE",
+    padding: "1px 6px",
+    borderRadius: 20,
+    marginLeft: 6,
   },
   statusPill: {
     fontSize: 10,

@@ -48,6 +48,7 @@ export default function PedidoActivo() {
   const [editNotes, setEditNotes] = useState({});
   const [editGeneralNote, setEditGeneralNote] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
+  const [showPrepaidPicker, setShowPrepaidPicker] = useState(false);
 
   // Para agregar nuevos productos
   const [products, setProducts] = useState([]);
@@ -379,6 +380,62 @@ export default function PedidoActivo() {
       .eq("id", id);
     if (error) {
       alert("Error al registrar pago");
+      setSaving(false);
+      return;
+    }
+    navigate("/tomador");
+  }
+
+  async function marcarPrepagado() {
+    setSaving(true);
+    const received = parseInt(cashReceived.replace(/\D/g, "")) || null;
+    const payload = {
+      prepaid: true,
+      payment_method: method,
+      cash_received: method === "efectivo" ? received : null,
+      cash_amount: method === "mixto" ? mixedCashNum() : null,
+      transfer_amount: method === "mixto" ? mixedTransferNum() : null,
+    };
+    const { error } = await supabase
+      .from("orders")
+      .update(payload)
+      .eq("id", id);
+    setSaving(false);
+    if (error) {
+      alert("Error al guardar el pago");
+      return;
+    }
+    setOrder((prev) => ({ ...prev, ...payload }));
+    setShowPrepaidPicker(false);
+  }
+
+  async function desmarcarPrepagado() {
+    const payload = {
+      prepaid: false,
+      payment_method: null,
+      cash_received: null,
+      cash_amount: null,
+      transfer_amount: null,
+    };
+    const { error } = await supabase
+      .from("orders")
+      .update(payload)
+      .eq("id", id);
+    if (error) {
+      alert("Error al actualizar");
+      return;
+    }
+    setOrder((prev) => ({ ...prev, ...payload }));
+  }
+
+  async function cerrarPrepagado() {
+    setSaving(true);
+    const { error } = await supabase
+      .from("orders")
+      .update({ status: "cerrado", closed_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) {
+      alert("Error al cerrar el pedido");
       setSaving(false);
       return;
     }
@@ -815,6 +872,180 @@ export default function PedidoActivo() {
               </div>
             </div>
 
+            {order.status !== "cerrado" &&
+              order.status !== "entregado" &&
+              !isSplit() && (
+                <div
+                  style={{
+                    ...s.prepaidBox,
+                    backgroundColor: order.prepaid ? "#EAF3DE" : "#F1EFE8",
+                  }}
+                >
+                  {order.prepaid ? (
+                    <div style={s.prepaidRow}>
+                      <div>
+                        <p style={{ ...s.prepaidTitle, color: "#3B6D11" }}>
+                          ✓ Ya pagado ·{" "}
+                          {order.payment_method === "efectivo"
+                            ? "Efectivo"
+                            : order.payment_method === "mixto"
+                              ? "Mixto"
+                              : "Transferencia"}
+                        </p>
+                        <p style={s.prepaidDesc}>
+                          Se cerrara con este medio de pago cuando termines.
+                        </p>
+                      </div>
+                      <button
+                        style={s.prepaidUndoBtn}
+                        onClick={desmarcarPrepagado}
+                      >
+                        Deshacer
+                      </button>
+                    </div>
+                  ) : showPrepaidPicker ? (
+                    <>
+                      <p style={s.sectionLabel}>Como te pagaron?</p>
+                      <div style={s.methodRow}>
+                        {["efectivo", "transferencia", "mixto"].map((m) => (
+                          <button
+                            key={m}
+                            style={{
+                              ...s.methodBtn,
+                              backgroundColor:
+                                method === m ? "#EAF3DE" : "#FFF",
+                              borderColor:
+                                method === m ? "#3B6D11" : "#DDDDCC",
+                              color: method === m ? "#3B6D11" : "#666660",
+                              fontWeight: method === m ? 600 : 400,
+                            }}
+                            onClick={() => setMethod(m)}
+                          >
+                            {m === "efectivo"
+                              ? "$ Efectivo"
+                              : m === "transferencia"
+                                ? "⇄ Transferencia"
+                                : "◐ Mixto"}
+                          </button>
+                        ))}
+                      </div>
+
+                      {method === "efectivo" && (
+                        <>
+                          <input
+                            style={s.cashInput}
+                            placeholder="Efectivo recibido: $0"
+                            value={cashReceived}
+                            onChange={(e) => setCashReceived(e.target.value)}
+                            type="number"
+                          />
+                          {cashReceived !== "" && vuelto() >= 0 && (
+                            <div style={s.vueltoBox}>
+                              <span style={s.vueltoLabel}>Vuelto</span>
+                              <span style={s.vueltoVal}>
+                                {formatPrice(vuelto())}
+                              </span>
+                            </div>
+                          )}
+                          {cashReceived !== "" && vuelto() < 0 && (
+                            <div
+                              style={{
+                                ...s.vueltoBox,
+                                backgroundColor: "#FCEBEB",
+                              }}
+                            >
+                              <span
+                                style={{ ...s.vueltoLabel, color: "#A32D2D" }}
+                              >
+                                Falta
+                              </span>
+                              <span
+                                style={{ ...s.vueltoVal, color: "#A32D2D" }}
+                              >
+                                {formatPrice(Math.abs(vuelto()))}
+                              </span>
+                            </div>
+                          )}
+                        </>
+                      )}
+
+                      {method === "mixto" && (
+                        <>
+                          <input
+                            style={s.cashInput}
+                            placeholder="Monto en efectivo: $0"
+                            value={mixedCash}
+                            onChange={(e) => setMixedCash(e.target.value)}
+                            type="number"
+                          />
+                          {mixedCashNum() > order.total ? (
+                            <div
+                              style={{
+                                ...s.vueltoBox,
+                                backgroundColor: "#FCEBEB",
+                              }}
+                            >
+                              <span
+                                style={{ ...s.vueltoLabel, color: "#A32D2D" }}
+                              >
+                                El efectivo supera el total
+                              </span>
+                            </div>
+                          ) : (
+                            <div style={s.vueltoBox}>
+                              <span style={s.vueltoLabel}>Transferencia</span>
+                              <span style={s.vueltoVal}>
+                                {formatPrice(mixedTransferNum())}
+                              </span>
+                            </div>
+                          )}
+                        </>
+                      )}
+
+                      <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                        <button
+                          style={{ ...s.btnGhost, flex: 1 }}
+                          onClick={() => setShowPrepaidPicker(false)}
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          style={{
+                            ...s.btnPrimary,
+                            flex: 2,
+                            opacity: saving ? 0.7 : 1,
+                          }}
+                          disabled={
+                            saving ||
+                            (method === "efectivo" && vuelto() < 0) ||
+                            (method === "mixto" &&
+                              (mixedCash === "" ||
+                                mixedCashNum() > order.total))
+                          }
+                          onClick={marcarPrepagado}
+                        >
+                          {saving ? "Guardando..." : "Confirmar pago"}
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <div
+                      style={s.prepaidRow}
+                      onClick={() => setShowPrepaidPicker(true)}
+                    >
+                      <div>
+                        <p style={s.prepaidTitle}>Ya me pagaron este pedido?</p>
+                        <p style={s.prepaidDesc}>
+                          Registra el medio de pago para no volver a cobrar al
+                          cerrar.
+                        </p>
+                      </div>
+                      <span style={s.prepaidArrow}>›</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
             {order.note && (
               <div style={s.noteBox}>
                 <span style={s.noteLabel}>Nota: </span>
@@ -919,7 +1150,45 @@ export default function PedidoActivo() {
               <>
                 <div style={s.divider} />
 
-                {isSplit() ? (
+                {order.prepaid && !isSplit() ? (
+                  <>
+                    <div style={s.closedBox}>
+                      <p style={s.closedTxt}>
+                        Ya pagado ·{" "}
+                        {order.payment_method === "efectivo"
+                          ? "Efectivo"
+                          : order.payment_method === "mixto"
+                            ? "Mixto"
+                            : "Transferencia"}
+                      </p>
+                      {order.payment_method === "efectivo" &&
+                        order.cash_received && (
+                          <p style={s.closedSub}>
+                            Recibido: {formatPrice(order.cash_received)} ·
+                            Vuelto:{" "}
+                            {formatPrice(order.cash_received - order.total)}
+                          </p>
+                        )}
+                      {order.payment_method === "mixto" && (
+                        <p style={s.closedSub}>
+                          Efectivo: {formatPrice(order.cash_amount)} ·
+                          Transferencia: {formatPrice(order.transfer_amount)}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      style={{
+                        ...s.btnPrimary,
+                        opacity: saving ? 0.7 : 1,
+                        cursor: saving ? "not-allowed" : "pointer",
+                      }}
+                      disabled={saving}
+                      onClick={cerrarPrepagado}
+                    >
+                      {saving ? "Cerrando..." : "Cerrar pedido"}
+                    </button>
+                  </>
+                ) : isSplit() ? (
                   <>
                     <p style={s.sectionLabel}>Cobrar por cuenta</p>
                     {subcuentaLabels().map((label) => {
@@ -1428,6 +1697,33 @@ const s = {
     fontWeight: 500,
     color: "#666660",
     marginBottom: 8,
+  },
+  prepaidBox: {
+    borderRadius: 8,
+    padding: "10px 12px",
+    marginBottom: 10,
+  },
+  prepaidRow: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    cursor: "pointer",
+  },
+  prepaidTitle: { fontSize: 13, fontWeight: 500, margin: "0 0 2px" },
+  prepaidDesc: { fontSize: 11, color: "#888880", margin: 0 },
+  prepaidArrow: { fontSize: 18, color: "#888880" },
+  prepaidUndoBtn: {
+    fontSize: 11,
+    fontWeight: 500,
+    color: "#666660",
+    background: "#FFF",
+    border: "0.5px solid #DDDDCC",
+    borderRadius: 20,
+    padding: "5px 10px",
+    cursor: "pointer",
+    fontFamily: "sans-serif",
+    flexShrink: 0,
   },
   generalNoteTextarea: {
     width: "100%",
