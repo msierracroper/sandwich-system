@@ -23,6 +23,22 @@ function bogotaDateStr(dateStr) {
   });
 }
 
+// Supabase corta cualquier consulta en 1000 filas por defecto — esto pagina
+// hasta traer todo, para reportes de periodos con mucho volumen.
+async function fetchAllPaginated(buildQuery) {
+  const pageSize = 1000;
+  let from = 0;
+  let all = [];
+  while (true) {
+    const { data } = await buildQuery(from, from + pageSize - 1);
+    if (!data || data.length === 0) break;
+    all = all.concat(data);
+    if (data.length < pageSize) break;
+    from += pageSize;
+  }
+  return all;
+}
+
 export default function Reportes() {
   const navigate = useNavigate();
   const todayStr = new Date().toLocaleDateString("en-CA", {
@@ -153,22 +169,14 @@ export default function Reportes() {
   }
 
   async function fetchAllClosedOrders() {
-    const pageSize = 1000;
-    let from = 0;
-    let all = [];
-    while (true) {
-      const { data } = await supabase
+    return fetchAllPaginated((from, to) =>
+      supabase
         .from("orders")
         .select("closed_at, total")
         .eq("status", "cerrado")
         .order("closed_at", { ascending: true })
-        .range(from, from + pageSize - 1);
-      if (!data || data.length === 0) break;
-      all = all.concat(data);
-      if (data.length < pageSize) break;
-      from += pageSize;
-    }
-    return all;
+        .range(from, to),
+    );
   }
 
   async function loadMissingDays() {
@@ -193,28 +201,34 @@ export default function Reportes() {
 
   async function loadHistory() {
     const today = new Date();
-    let from, to;
+    let fromStr, toStr;
 
     if (histTab === "semana") {
-      from = new Date(today);
+      const from = new Date(today);
       from.setDate(today.getDate() - 7);
-      to = today;
+      fromStr = from.toLocaleDateString("en-CA", {
+        timeZone: "America/Bogota",
+      });
+      toStr = today.toLocaleDateString("en-CA", { timeZone: "America/Bogota" });
     } else if (histTab === "mes") {
-      from = new Date(today);
+      const from = new Date(today);
       from.setDate(1);
-      to = today;
+      fromStr = from.toLocaleDateString("en-CA", {
+        timeZone: "America/Bogota",
+      });
+      toStr = today.toLocaleDateString("en-CA", { timeZone: "America/Bogota" });
     } else {
       // personalizado
       if (!fechaDesde || !fechaHasta) return;
-      from = new Date(fechaDesde);
-      to = new Date(fechaHasta);
+      fromStr = fechaDesde;
+      toStr = fechaHasta;
     }
 
     const { data } = await supabase
       .from("daily_summaries")
       .select("*")
-      .gte("date", from.toISOString().split("T")[0])
-      .lte("date", to.toISOString().split("T")[0])
+      .gte("date", fromStr)
+      .lte("date", toStr)
       .order("date", { ascending: false });
     setHistory(data ?? []);
   }
@@ -248,21 +262,27 @@ export default function Reportes() {
       toStr = statsHasta;
     }
 
-    // Cargar items y gastos en paralelo
-    const [{ data: itemsData }, { data: expensesData }] = await Promise.all([
-      supabase
-        .from("order_items")
-        .select(
-          "quantity, unit_price, station, products(name, category), orders!inner(status, closed_at, type)",
-        )
-        .eq("orders.status", "cerrado")
-        .gte("orders.closed_at", fromStr + "T00:00:00")
-        .lte("orders.closed_at", toStr + "T23:59:59"),
-      supabase
-        .from("expenses")
-        .select("amount, category")
-        .gte("date", fromStr)
-        .lte("date", toStr),
+    // Cargar items y gastos en paralelo, paginando para no cortar en 1000 filas
+    const [itemsData, expensesData] = await Promise.all([
+      fetchAllPaginated((from, to) =>
+        supabase
+          .from("order_items")
+          .select(
+            "quantity, unit_price, station, products(name, category), orders!inner(status, closed_at, type)",
+          )
+          .eq("orders.status", "cerrado")
+          .gte("orders.closed_at", fromStr + "T00:00:00")
+          .lte("orders.closed_at", toStr + "T23:59:59")
+          .range(from, to),
+      ),
+      fetchAllPaginated((from, to) =>
+        supabase
+          .from("expenses")
+          .select("amount, category, description")
+          .gte("date", fromStr)
+          .lte("date", toStr)
+          .range(from, to),
+      ),
     ]);
 
     if (!itemsData) {
@@ -316,8 +336,13 @@ export default function Reportes() {
       0,
     );
     const gastosPorCat = {};
+    const gastosPorItem = {};
     for (const e of expensesData ?? []) {
       gastosPorCat[e.category] = (gastosPorCat[e.category] ?? 0) + e.amount;
+      if (!gastosPorItem[e.category]) gastosPorItem[e.category] = {};
+      const label = e.description || "Sin descripcion";
+      gastosPorItem[e.category][label] =
+        (gastosPorItem[e.category][label] ?? 0) + e.amount;
     }
 
     const utilidad = totalIngresos - totalGastos;
@@ -331,6 +356,7 @@ export default function Reportes() {
       hourly,
       totalGastos,
       gastosPorCat,
+      gastosPorItem,
       utilidad,
       periodo: statsTab,
     });
@@ -1110,25 +1136,37 @@ export default function Reportes() {
                   >
                     {Object.entries(statsData.gastosPorCat).map(
                       ([cat, amount]) => (
-                        <div key={cat} style={s.catRow}>
-                          <div
-                            style={{
-                              ...s.catDot,
-                              backgroundColor: GASTO_COLOR[cat] ?? "#888880",
-                            }}
-                          />
-                          <span style={s.catName}>
-                            {GASTO_LABEL[cat] ?? cat}
-                          </span>
-                          <span
-                            style={{
-                              fontSize: 12,
-                              fontWeight: 500,
-                              color: "#A32D2D",
-                            }}
-                          >
-                            {formatPrice(amount)}
-                          </span>
+                        <div key={cat}>
+                          <div style={s.catRow}>
+                            <div
+                              style={{
+                                ...s.catDot,
+                                backgroundColor: GASTO_COLOR[cat] ?? "#888880",
+                              }}
+                            />
+                            <span style={s.catName}>
+                              {GASTO_LABEL[cat] ?? cat}
+                            </span>
+                            <span
+                              style={{
+                                fontSize: 12,
+                                fontWeight: 500,
+                                color: "#A32D2D",
+                              }}
+                            >
+                              {formatPrice(amount)}
+                            </span>
+                          </div>
+                          <div style={s.gastoItemList}>
+                            {Object.entries(statsData.gastosPorItem[cat] ?? {})
+                              .sort((a, b) => b[1] - a[1])
+                              .map(([item, itemAmount]) => (
+                                <div key={item} style={s.gastoItemRow}>
+                                  <span>{item}</span>
+                                  <span>{formatPrice(itemAmount)}</span>
+                                </div>
+                              ))}
+                          </div>
                         </div>
                       ),
                     )}
@@ -1815,6 +1853,18 @@ const s = {
   },
   catDot: { width: 10, height: 10, borderRadius: "50%", flexShrink: 0 },
   catName: { fontSize: 12, color: "#666660", flex: 1 },
+  gastoItemList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 2,
+    padding: "4px 10px 2px 28px",
+  },
+  gastoItemRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    fontSize: 11,
+    color: "#888880",
+  },
   catQty: {
     fontSize: 12,
     fontWeight: 500,
