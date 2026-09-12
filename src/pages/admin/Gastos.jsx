@@ -47,6 +47,7 @@ export default function Gastos() {
   const [newCategoryName, setNewCategoryName] = useState("");
   const [showNewItem, setShowNewItem] = useState(false);
   const [newItemName, setNewItemName] = useState("");
+  const [showManageCategories, setShowManageCategories] = useState(false);
 
   const [filterCat, setFilterCat] = useState("todos");
   const [periodo, setPeriodo] = useState("semana"); // 'hoy' | 'semana' | 'mes'
@@ -179,6 +180,21 @@ export default function Gastos() {
     setShowNewCategory(false);
   }
 
+  async function deleteCategory(cat) {
+    if (
+      !confirm(
+        `¿Eliminar la categoria "${cat.name}"? Los insumos que tenga tambien se ocultaran. Los gastos ya registrados no se ven afectados.`,
+      )
+    )
+      return;
+    await supabase.from("expense_categories").update({ active: false }).eq("id", cat.id);
+    await supabase.from("expense_items").update({ active: false }).eq("category_id", cat.id);
+    if (form.categoryId === cat.id) {
+      setForm((f) => ({ ...f, categoryId: "", itemId: "" }));
+    }
+    loadCatalog();
+  }
+
   async function addItem() {
     if (!newItemName.trim() || !form.categoryId) return;
     setError("");
@@ -288,9 +304,17 @@ export default function Gastos() {
             <p style={s.sub}>{expenses.length} registros</p>
           </div>
         </div>
-        <button style={s.newBtn} onClick={openNew}>
-          + nuevo
-        </button>
+        <div style={{ display: "flex", gap: 6 }}>
+          <button
+            style={s.manageBtn}
+            onClick={() => setShowManageCategories(true)}
+          >
+            ⚙ Categorías
+          </button>
+          <button style={s.newBtn} onClick={openNew}>
+            + nuevo
+          </button>
+        </div>
       </div>
 
       {/* Periodo */}
@@ -496,31 +520,26 @@ export default function Gastos() {
                 />
 
                 <p style={s.label}>Categoría</p>
-                <div style={s.catBtns}>
+                <select
+                  style={s.select}
+                  value={showNewCategory ? "__new__" : form.categoryId}
+                  onChange={(e) => {
+                    if (e.target.value === "__new__") {
+                      setShowNewCategory(true);
+                    } else {
+                      setShowNewCategory(false);
+                      pickCategory(e.target.value);
+                    }
+                  }}
+                >
+                  <option value="">Elige una categoria...</option>
                   {categories.map((cat) => (
-                    <button
-                      key={cat.id}
-                      style={{
-                        ...s.catOptBtn,
-                        backgroundColor:
-                          form.categoryId === cat.id ? paletteFor(cat.color).bg : "#FFF",
-                        borderColor:
-                          form.categoryId === cat.id ? cat.color : "#DDDDCC",
-                        color: form.categoryId === cat.id ? cat.color : "#666660",
-                        fontWeight: form.categoryId === cat.id ? 600 : 400,
-                      }}
-                      onClick={() => pickCategory(cat.id)}
-                    >
+                    <option key={cat.id} value={cat.id}>
                       {cat.name}
-                    </button>
+                    </option>
                   ))}
-                  <button
-                    style={s.addChipBtn}
-                    onClick={() => setShowNewCategory(!showNewCategory)}
-                  >
-                    + nueva
-                  </button>
-                </div>
+                  <option value="__new__">+ Crear categoria nueva...</option>
+                </select>
                 {showNewCategory && (
                   <div style={s.inlineAdd}>
                     <input
@@ -538,29 +557,26 @@ export default function Gastos() {
                 {form.categoryId && (
                   <>
                     <p style={s.label}>Insumo</p>
-                    <div style={s.catBtns}>
+                    <select
+                      style={s.select}
+                      value={showNewItem ? "__new__" : form.itemId}
+                      onChange={(e) => {
+                        if (e.target.value === "__new__") {
+                          setShowNewItem(true);
+                        } else {
+                          setShowNewItem(false);
+                          setForm((f) => ({ ...f, itemId: e.target.value }));
+                        }
+                      }}
+                    >
+                      <option value="">Elige un insumo...</option>
                       {itemsForCategory(form.categoryId).map((item) => (
-                        <button
-                          key={item.id}
-                          style={{
-                            ...s.catOptBtn,
-                            backgroundColor: form.itemId === item.id ? "#E6F1FB" : "#FFF",
-                            borderColor: form.itemId === item.id ? "#378ADD" : "#DDDDCC",
-                            color: form.itemId === item.id ? "#185FA5" : "#666660",
-                            fontWeight: form.itemId === item.id ? 600 : 400,
-                          }}
-                          onClick={() => setForm((f) => ({ ...f, itemId: item.id }))}
-                        >
+                        <option key={item.id} value={item.id}>
                           {item.name}
-                        </button>
+                        </option>
                       ))}
-                      <button
-                        style={s.addChipBtn}
-                        onClick={() => setShowNewItem(!showNewItem)}
-                      >
-                        + nuevo
-                      </button>
-                    </div>
+                      <option value="__new__">+ Crear insumo nuevo...</option>
+                    </select>
                     {showNewItem && (
                       <div style={s.inlineAdd}>
                         <input
@@ -613,6 +629,61 @@ export default function Gastos() {
           </div>
         </div>
       )}
+
+      {/* Modal: administrar categorias */}
+      {showManageCategories && (
+        <div
+          style={s.overlay}
+          onClick={() => setShowManageCategories(false)}
+        >
+          <div style={s.modal} onClick={(e) => e.stopPropagation()}>
+            <div style={s.modalHeader}>
+              <p style={s.modalTitle}>Administrar categorías</p>
+              <button
+                style={s.closeBtn}
+                onClick={() => setShowManageCategories(false)}
+              >
+                ✕
+              </button>
+            </div>
+            <div style={s.formBody}>
+              {categories.length === 0 ? (
+                <p style={s.loadTxt}>No hay categorias creadas</p>
+              ) : (
+                <div style={s.manageList}>
+                  {categories.map((cat) => (
+                    <div key={cat.id} style={s.manageRow}>
+                      <div
+                        style={{
+                          ...s.catDot,
+                          backgroundColor: paletteFor(cat.color).color,
+                        }}
+                      />
+                      <span style={s.manageName}>{cat.name}</span>
+                      <span style={s.manageCount}>
+                        {itemsForCategory(cat.id).length} insumo
+                        {itemsForCategory(cat.id).length !== 1 ? "s" : ""}
+                      </span>
+                      <button
+                        style={{ ...s.iconBtn, color: "#A32D2D" }}
+                        onClick={() => deleteCategory(cat)}
+                      >
+                        🗑
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <button
+                style={{ ...s.btnGhost, marginTop: 12 }}
+                onClick={() => setShowManageCategories(false)}
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -657,9 +728,12 @@ const s = {
   formBody: { padding: 16 },
   label: { fontSize: 12, fontWeight: 500, color: "#444441", margin: "0 0 4px" },
   input: { width: "100%", border: "0.5px solid #B0AFA5", borderRadius: 8, padding: "10px 12px", fontSize: 14, color: "#1A1A1A", fontFamily: "sans-serif", outline: "none", backgroundColor: "#FAFAF8", marginBottom: 12, boxSizing: "border-box" },
-  catBtns: { display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 },
-  catOptBtn: { border: "0.5px solid", borderRadius: 20, padding: "5px 12px", fontSize: 12, cursor: "pointer", fontFamily: "sans-serif" },
-  addChipBtn: { border: "0.5px dashed #B0AFA5", borderRadius: 20, padding: "5px 12px", fontSize: 12, cursor: "pointer", fontFamily: "sans-serif", color: "#666660", backgroundColor: "#FFF" },
+  select: { width: "100%", border: "0.5px solid #B0AFA5", borderRadius: 8, padding: "10px 12px", fontSize: 14, color: "#1A1A1A", fontFamily: "sans-serif", backgroundColor: "#FAFAF8", marginBottom: 12, boxSizing: "border-box" },
+  manageBtn: { fontSize: 12, fontWeight: 500, color: "#666660", backgroundColor: "#F1EFE8", border: "0.5px solid #DDDDCC", borderRadius: 20, padding: "6px 14px", cursor: "pointer", fontFamily: "sans-serif" },
+  manageList: { display: "flex", flexDirection: "column", gap: 6 },
+  manageRow: { display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", backgroundColor: "#F1EFE8", borderRadius: 8 },
+  manageName: { fontSize: 13, fontWeight: 500, color: "#1A1A1A", flex: 1 },
+  manageCount: { fontSize: 11, color: "#888880" },
   inlineAdd: { display: "flex", gap: 6, marginBottom: 12 },
   inlineInput: { flex: 1, border: "0.5px solid #B0AFA5", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "#1A1A1A", fontFamily: "sans-serif", outline: "none", backgroundColor: "#FAFAF8", boxSizing: "border-box" },
   inlineBtn: { fontSize: 12, fontWeight: 500, color: "#185FA5", backgroundColor: "#E6F1FB", border: "0.5px solid #B5D4F4", borderRadius: 8, padding: "8px 12px", cursor: "pointer", whiteSpace: "nowrap" },
