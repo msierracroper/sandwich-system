@@ -49,7 +49,8 @@ export default function NuevoPedido() {
       .from("products")
       .select("*")
       .eq("active", true)
-      .order("category");
+      .order("category")
+      .order("name");
     setProducts(data ?? []);
     setLoading(false);
   }
