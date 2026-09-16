@@ -128,12 +128,28 @@ function TicketCard({ ticket, onUpdate }) {
         <span style={s.ticketTime}>{timeAgo(ticket.createdAt)}</span>
       </div>
 
+      {ticket.combined && (
+        <div style={s.combinedBadge}>↔ También tiene items en la otra estación</div>
+      )}
+
+      {ticket.note && (
+        <div style={s.orderNoteBox}>
+          <span style={s.orderNoteLabel}>Nota del pedido: </span>
+          {ticket.note}
+        </div>
+      )}
+
       <div style={s.ticketItems}>
         {ticket.items.map((item) => (
           <div key={item.id} style={s.ticketItem}>
             <div style={s.qtyBadge}>{item.quantity}x</div>
             <div>
-              <p style={s.itemName}>{item.productName}</p>
+              <p style={s.itemName}>
+                {item.productName}
+                {item.subcuenta && (
+                  <span style={s.subcuentaTag}> · {item.subcuenta}</span>
+                )}
+              </p>
               {item.note && <p style={s.itemNote}>{item.note}</p>}
             </div>
           </div>
@@ -172,7 +188,7 @@ function TicketCard({ ticket, onUpdate }) {
   );
 }
 
-function StationColumn({ station, tickets, onUpdate }) {
+function StationColumn({ station, tickets, onUpdate, wide }) {
   const cfg = STATION_CONFIG[station];
   return (
     <div
@@ -197,7 +213,18 @@ function StationColumn({ station, tickets, onUpdate }) {
           {tickets.length} en cola
         </span>
       </div>
-      <div style={s.ticketList}>
+      <div
+        style={{
+          ...s.ticketList,
+          ...(wide
+            ? {
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+                alignContent: "start",
+              }
+            : {}),
+        }}
+      >
         {tickets.length === 0 && (
           <div style={s.emptySlot}>
             <p style={s.emptyTxt}>Sin pedidos pendientes</p>
@@ -215,11 +242,29 @@ function StationColumn({ station, tickets, onUpdate }) {
   );
 }
 
+const VIEW_MODE_KEY = "preparador_view_mode";
+
 export default function PreparadorHome() {
   const { signOut } = useAuth();
   const [tickets, setTickets] = useState({ frio: [], caliente: [] });
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(Date.now());
+  const [viewMode, setViewMode] = useState(() => {
+    try {
+      return localStorage.getItem(VIEW_MODE_KEY) ?? "ambas";
+    } catch {
+      return "ambas";
+    }
+  });
+
+  function changeViewMode(mode) {
+    setViewMode(mode);
+    try {
+      localStorage.setItem(VIEW_MODE_KEY, mode);
+    } catch {
+      // almacenamiento no disponible en este dispositivo, no pasa nada
+    }
+  }
 
   // Reloj para actualizar tiempos cada minuto
   useEffect(() => {
@@ -253,10 +298,10 @@ export default function PreparadorHome() {
       .from("order_items")
       .select(
         `
-        id, quantity, unit_price, station, prep_status, note, prep_started_at,
+        id, quantity, unit_price, station, prep_status, note, prep_started_at, subcuenta,
         order_id,
         products(name),
-        orders!inner(id, type, status, created_at, tables(name))
+        orders!inner(id, type, status, created_at, note, tables(name))
       `,
       )
       .in("prep_status", ["pendiente", "en_preparacion"])
@@ -282,6 +327,7 @@ export default function PreparadorHome() {
           type: order.type,
           tableName: order.tables?.name ?? null,
           createdAt: order.created_at,
+          note: order.note,
           items: [],
         };
       }
@@ -291,8 +337,20 @@ export default function PreparadorHome() {
         productName: item.products?.name,
         prep_status: item.prep_status,
         note: item.note,
+        subcuenta: item.subcuenta,
         prep_started_at: item.prep_started_at,
       });
+    }
+
+    // Marcar pedidos que tienen items en ambas estaciones — util para que
+    // cada tablet sepa que ese pedido tambien esta esperando en la otra
+    const frioIds = new Set(Object.keys(grouped.frio));
+    const calienteIds = new Set(Object.keys(grouped.caliente));
+    for (const id of Object.keys(grouped.frio)) {
+      grouped.frio[id].combined = calienteIds.has(id);
+    }
+    for (const id of Object.keys(grouped.caliente)) {
+      grouped.caliente[id].combined = frioIds.has(id);
     }
 
     setTickets({
@@ -343,23 +401,53 @@ export default function PreparadorHome() {
           >
             Calientes: {tickets.caliente.length}
           </div>
+          <div style={s.viewModeRow}>
+            {[
+              ["ambas", "Ambas"],
+              ["caliente", "Solo caliente"],
+              ["frio", "Solo fría"],
+            ].map(([val, lbl]) => (
+              <button
+                key={val}
+                style={{
+                  ...s.viewModeBtn,
+                  backgroundColor: viewMode === val ? "#1A1A1A" : "#FFF",
+                  color: viewMode === val ? "#FFF" : "#666660",
+                }}
+                onClick={() => changeViewMode(val)}
+              >
+                {lbl}
+              </button>
+            ))}
+          </div>
           <button style={s.logoutBtn} onClick={signOut}>
             Salir
           </button>
         </div>
       </div>
 
-      <div style={s.splitScreen}>
-        <StationColumn
-          station="caliente"
-          tickets={tickets.caliente}
-          onUpdate={loadTickets}
-        />
-        <StationColumn
-          station="frio"
-          tickets={tickets.frio}
-          onUpdate={loadTickets}
-        />
+      <div
+        style={{
+          ...s.splitScreen,
+          gridTemplateColumns: viewMode === "ambas" ? "1fr 1fr" : "1fr",
+        }}
+      >
+        {(viewMode === "ambas" || viewMode === "caliente") && (
+          <StationColumn
+            station="caliente"
+            tickets={tickets.caliente}
+            onUpdate={loadTickets}
+            wide={viewMode === "caliente"}
+          />
+        )}
+        {(viewMode === "ambas" || viewMode === "frio") && (
+          <StationColumn
+            station="frio"
+            tickets={tickets.frio}
+            onUpdate={loadTickets}
+            wide={viewMode === "frio"}
+          />
+        )}
       </div>
     </div>
   );
@@ -403,6 +491,21 @@ const s = {
     fontWeight: 500,
     padding: "4px 12px",
     borderRadius: 20,
+  },
+  viewModeRow: {
+    display: "flex",
+    border: "0.5px solid #DDDDCC",
+    borderRadius: 8,
+    overflow: "hidden",
+  },
+  viewModeBtn: {
+    fontSize: 11,
+    fontWeight: 500,
+    border: "none",
+    padding: "6px 10px",
+    cursor: "pointer",
+    fontFamily: "sans-serif",
+    whiteSpace: "nowrap",
   },
   logoutBtn: {
     fontSize: 12,
@@ -458,6 +561,25 @@ const s = {
   ticketId: { fontSize: 12, fontWeight: 600 },
   mesaPill: { padding: "2px 8px", borderRadius: 20 },
   ticketTime: { fontSize: 12, color: "#888880", marginLeft: "auto" },
+  combinedBadge: {
+    fontSize: 11,
+    fontWeight: 600,
+    color: "#0C447C",
+    backgroundColor: "#E6F1FB",
+    borderRadius: 6,
+    padding: "4px 8px",
+    marginBottom: 8,
+  },
+  orderNoteBox: {
+    fontSize: 12,
+    color: "#663C00",
+    backgroundColor: "#FFF3D6",
+    borderRadius: 6,
+    padding: "6px 8px",
+    marginBottom: 8,
+    borderLeft: "2px solid #EF9F27",
+  },
+  orderNoteLabel: { fontWeight: 700 },
   ticketItems: {
     display: "flex",
     flexDirection: "column",
@@ -476,6 +598,7 @@ const s = {
     flexShrink: 0,
   },
   itemName: { fontSize: 14, fontWeight: 700, color: "#1A1A1A", margin: 0 },
+  subcuentaTag: { fontSize: 12, fontWeight: 600, color: "#185FA5" },
   itemNote: {
     fontSize: 13,
     color: "#A32D2D",
