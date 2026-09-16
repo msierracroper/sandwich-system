@@ -206,24 +206,48 @@ export default function Pedidos() {
         );
       });
 
+    // Si se sube la cantidad de un item que ya estaba listo/en preparacion,
+    // esa unidad ya trabajada no se toca: se agrega una linea nueva y
+    // separada solo con lo adicional, igual que un producto nuevo.
+    const splitOps = [];
+    const normalUpdates = [];
+    for (const [itemId, qty] of toUpdate) {
+      const original = items.find((i) => i.id === itemId);
+      const needsSplit =
+        original &&
+        qty > original.quantity &&
+        original.prep_status !== "pendiente";
+      if (needsSplit) {
+        splitOps.push({ itemId, original, delta: qty - original.quantity });
+      } else {
+        normalUpdates.push([itemId, qty]);
+      }
+    }
+
     try {
-      await Promise.all(
-        toUpdate.map(([itemId, qty]) => {
-          const original = items.find((i) => i.id === itemId);
-          const backToPending =
-            original &&
-            qty > original.quantity &&
-            original.prep_status !== "pendiente";
-          return supabase
+      await Promise.all([
+        ...normalUpdates.map(([itemId, qty]) =>
+          supabase
             .from("order_items")
-            .update({
-              quantity: qty,
-              note: editNotes[itemId] || null,
-              ...(backToPending ? { prep_status: "pendiente" } : {}),
-            })
-            .eq("id", itemId);
-        }),
-      );
+            .update({ quantity: qty, note: editNotes[itemId] || null })
+            .eq("id", itemId),
+        ),
+        ...splitOps.flatMap(({ itemId, original, delta }) => [
+          supabase
+            .from("order_items")
+            .update({ note: editNotes[itemId] || null })
+            .eq("id", itemId),
+          supabase.from("order_items").insert({
+            order_id: selected.id,
+            product_id: original.product_id,
+            quantity: delta,
+            unit_price: original.unit_price,
+            station: original.station,
+            prep_status: "pendiente",
+            note: null,
+          }),
+        ]),
+      ]);
       await Promise.all(
         toDelete.map(([itemId]) =>
           supabase.from("order_items").delete().eq("id", itemId),
