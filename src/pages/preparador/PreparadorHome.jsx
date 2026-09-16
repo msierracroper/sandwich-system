@@ -93,13 +93,17 @@ function TicketCard({ ticket, onUpdate }) {
   const isPreparing2 = ticket.items.some(
     (i) => i.prep_status === "en_preparacion",
   );
+  const typeColor = TYPE_PILL_COLOR[ticket.type] ?? {
+    bg: "#FFF",
+    color: "#DDDDCC",
+  };
 
   return (
     <div
       style={{
         ...s.ticket,
-        borderColor: isPreparing2 ? "#EF9F27" : "#DDDDCC",
-        borderWidth: isPreparing2 ? 1.5 : 0.5,
+        borderColor: isPreparing2 ? "#EF9F27" : typeColor.color,
+        borderWidth: isPreparing2 ? 1.5 : 1,
       }}
     >
       <div style={s.ticketTop}>
@@ -406,11 +410,12 @@ export default function PreparadorHome() {
               ["ambas", "Ambas"],
               ["caliente", "Solo caliente"],
               ["frio", "Solo fría"],
-            ].map(([val, lbl]) => (
+            ].map(([val, lbl], i) => (
               <button
                 key={val}
                 style={{
                   ...s.viewModeBtn,
+                  borderTop: i === 0 ? "none" : s.viewModeBtn.borderTop,
                   backgroundColor: viewMode === val ? "#1A1A1A" : "#FFF",
                   color: viewMode === val ? "#FFF" : "#666660",
                 }}
@@ -485,7 +490,13 @@ const s = {
     margin: 0,
     textTransform: "capitalize",
   },
-  topRight: { display: "flex", alignItems: "center", gap: 10 },
+  topRight: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    flexWrap: "wrap",
+    justifyContent: "flex-end",
+  },
   statPill: {
     fontSize: 12,
     fontWeight: 500,
@@ -494,6 +505,7 @@ const s = {
   },
   viewModeRow: {
     display: "flex",
+    flexDirection: "column",
     border: "0.5px solid #DDDDCC",
     borderRadius: 8,
     overflow: "hidden",
@@ -502,10 +514,12 @@ const s = {
     fontSize: 11,
     fontWeight: 500,
     border: "none",
+    borderTop: "0.5px solid #DDDDCC",
     padding: "6px 10px",
     cursor: "pointer",
     fontFamily: "sans-serif",
     whiteSpace: "nowrap",
+    textAlign: "left",
   },
   logoutBtn: {
     fontSize: 12,
