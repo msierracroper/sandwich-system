@@ -36,6 +36,10 @@ export default function Pedidos() {
   const [editQtys, setEditQtys] = useState({});
   const [editNotes, setEditNotes] = useState({});
   const [editGeneralNote, setEditGeneralNote] = useState("");
+  const [editAddress, setEditAddress] = useState("");
+  const [editCustomerName, setEditCustomerName] = useState("");
+  const [editCustomerPhone, setEditCustomerPhone] = useState("");
+  const [editPaymentMethod, setEditPaymentMethod] = useState("efectivo");
   const [newItems, setNewItems] = useState({});
   const [newItemNotes, setNewItemNotes] = useState({});
   const [products, setProducts] = useState([]);
@@ -150,6 +154,10 @@ export default function Pedidos() {
     setEditQtys(qtys);
     setEditNotes(notes);
     setEditGeneralNote(selected?.note ?? "");
+    setEditAddress(selected?.address ?? "");
+    setEditCustomerName(selected?.customer_name ?? "");
+    setEditCustomerPhone(selected?.customer_phone ?? "");
+    setEditPaymentMethod(selected?.payment_method ?? "efectivo");
     setNewItems({});
     setNewItemNotes({});
     setShowAddProducts(false);
@@ -162,6 +170,10 @@ export default function Pedidos() {
     setEditQtys({});
     setEditNotes({});
     setEditGeneralNote("");
+    setEditAddress("");
+    setEditCustomerName("");
+    setEditCustomerPhone("");
+    setEditPaymentMethod("efectivo");
     setNewItems({});
     setNewItemNotes({});
     setShowAddProducts(false);
@@ -270,11 +282,21 @@ export default function Pedidos() {
       }
       const newStatus =
         needsPrep && selected.status === "listo" ? "en_preparacion" : null;
+      const domicilioFields =
+        selected.type === "domicilio"
+          ? {
+              address: editAddress || null,
+              customer_name: editCustomerName || null,
+              customer_phone: editCustomerPhone || null,
+              payment_method: editPaymentMethod,
+            }
+          : {};
       await supabase
         .from("orders")
         .update({
           total: editTotal,
           note: editGeneralNote || null,
+          ...domicilioFields,
           ...(newStatus ? { status: newStatus } : {}),
         })
         .eq("id", selected.id);
@@ -282,16 +304,21 @@ export default function Pedidos() {
       setEditQtys({});
       setEditNotes({});
       setEditGeneralNote("");
+      setEditAddress("");
+      setEditCustomerName("");
+      setEditCustomerPhone("");
+      setEditPaymentMethod("efectivo");
       setNewItems({});
       setNewItemNotes({});
       setShowAddProducts(false);
       await loadOrderItems(selected.id);
       await loadOrders();
-      // Actualizar el pedido seleccionado con el nuevo total, nota y estado
+      // Actualizar el pedido seleccionado con el nuevo total, nota, estado y datos de domicilio
       setSelected((prev) => ({
         ...prev,
         total: editTotal,
         note: editGeneralNote || null,
+        ...domicilioFields,
         status: newStatus ?? prev.status,
       }));
     } catch (e) {
@@ -800,6 +827,57 @@ export default function Pedidos() {
                     rows={2}
                   />
 
+                  {selected.type === "domicilio" && (
+                    <>
+                      <p style={{ fontSize: 11, fontWeight: 500, color: "#666660", margin: "10px 0 8px" }}>
+                        Datos de domicilio
+                      </p>
+                      <input
+                        style={s.fieldInput}
+                        placeholder="Direccion de entrega..."
+                        value={editAddress}
+                        onChange={(e) => setEditAddress(e.target.value)}
+                      />
+                      <input
+                        style={s.fieldInput}
+                        placeholder="Nombre del cliente..."
+                        value={editCustomerName}
+                        onChange={(e) => setEditCustomerName(e.target.value)}
+                      />
+                      <input
+                        style={s.fieldInput}
+                        placeholder="Telefono del cliente..."
+                        type="tel"
+                        value={editCustomerPhone}
+                        onChange={(e) => setEditCustomerPhone(e.target.value)}
+                      />
+                      <p style={{ fontSize: 11, fontWeight: 500, color: "#666660", marginBottom: 8 }}>
+                        Medio de pago
+                      </p>
+                      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                        {["efectivo", "transferencia"].map((m) => (
+                          <button
+                            key={m}
+                            style={{
+                              ...s.methodBtn,
+                              flex: 1,
+                              backgroundColor:
+                                editPaymentMethod === m ? "#E6F1FB" : "#FFF",
+                              borderColor:
+                                editPaymentMethod === m ? "#378ADD" : "#DDDDCC",
+                              color:
+                                editPaymentMethod === m ? "#185FA5" : "#666660",
+                              fontWeight: editPaymentMethod === m ? 600 : 400,
+                            }}
+                            onClick={() => setEditPaymentMethod(m)}
+                          >
+                            {m === "efectivo" ? "Efectivo" : "Transferencia"}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+
                   <div style={s.divider} />
                   <div style={s.totalRow}>
                     <span>Nuevo total</span>
@@ -1225,6 +1303,26 @@ const s = {
     backgroundColor: "#F1EFE8",
     resize: "none",
     boxSizing: "border-box",
+  },
+  fieldInput: {
+    width: "100%",
+    border: "0.5px solid #DDDDCC",
+    borderRadius: 8,
+    padding: "10px 12px",
+    fontSize: 13,
+    color: "#1A1A1A",
+    fontFamily: "sans-serif",
+    backgroundColor: "#FFF",
+    marginBottom: 8,
+    boxSizing: "border-box",
+  },
+  methodBtn: {
+    border: "0.5px solid",
+    borderRadius: 8,
+    padding: "10px 8px",
+    fontSize: 12,
+    cursor: "pointer",
+    fontFamily: "sans-serif",
   },
   itemRight: { textAlign: "right" },
   itemPrice: {

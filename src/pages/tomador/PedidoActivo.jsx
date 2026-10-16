@@ -47,6 +47,10 @@ export default function PedidoActivo() {
   const [editQtys, setEditQtys] = useState({});
   const [editNotes, setEditNotes] = useState({});
   const [editGeneralNote, setEditGeneralNote] = useState("");
+  const [editAddress, setEditAddress] = useState("");
+  const [editCustomerName, setEditCustomerName] = useState("");
+  const [editCustomerPhone, setEditCustomerPhone] = useState("");
+  const [editPaymentMethod, setEditPaymentMethod] = useState("efectivo");
   const [savingEdit, setSavingEdit] = useState(false);
   const [showPrepaidPicker, setShowPrepaidPicker] = useState(false);
 
@@ -240,6 +244,10 @@ export default function PedidoActivo() {
     setEditQtys(qtys);
     setEditNotes(notes);
     setEditGeneralNote(order?.note ?? "");
+    setEditAddress(order?.address ?? "");
+    setEditCustomerName(order?.customer_name ?? "");
+    setEditCustomerPhone(order?.customer_phone ?? "");
+    setEditPaymentMethod(order?.payment_method ?? "efectivo");
     setNewItems({});
     setNewItemNotes({});
     setShowAddProducts(false);
@@ -252,6 +260,10 @@ export default function PedidoActivo() {
     setEditQtys({});
     setEditNotes({});
     setEditGeneralNote("");
+    setEditAddress("");
+    setEditCustomerName("");
+    setEditCustomerPhone("");
+    setEditPaymentMethod("efectivo");
     setNewItems({});
     setNewItemNotes({});
     setShowAddProducts(false);
@@ -367,6 +379,14 @@ export default function PedidoActivo() {
         .update({
           total: editTotal,
           note: editGeneralNote || null,
+          ...(order.type === "domicilio"
+            ? {
+                address: editAddress || null,
+                customer_name: editCustomerName || null,
+                customer_phone: editCustomerPhone || null,
+                payment_method: editPaymentMethod,
+              }
+            : {}),
           ...(needsPrep && order.status === "listo"
             ? { status: "en_preparacion" }
             : {}),
@@ -377,6 +397,10 @@ export default function PedidoActivo() {
       setEditQtys({});
       setEditNotes({});
       setEditGeneralNote("");
+      setEditAddress("");
+      setEditCustomerName("");
+      setEditCustomerPhone("");
+      setEditPaymentMethod("efectivo");
       setNewItems({});
       setNewItemNotes({});
       setShowAddProducts(false);
@@ -835,6 +859,55 @@ export default function PedidoActivo() {
               onChange={(e) => setEditGeneralNote(e.target.value)}
               rows={2}
             />
+
+            {order.type === "domicilio" && (
+              <>
+                <p style={{ ...s.sectionLabel, marginTop: 10 }}>
+                  Datos de domicilio
+                </p>
+                <input
+                  style={s.cashInput}
+                  placeholder="Direccion de entrega..."
+                  value={editAddress}
+                  onChange={(e) => setEditAddress(e.target.value)}
+                />
+                <input
+                  style={s.cashInput}
+                  placeholder="Nombre del cliente..."
+                  value={editCustomerName}
+                  onChange={(e) => setEditCustomerName(e.target.value)}
+                />
+                <input
+                  style={s.cashInput}
+                  placeholder="Telefono del cliente..."
+                  type="tel"
+                  value={editCustomerPhone}
+                  onChange={(e) => setEditCustomerPhone(e.target.value)}
+                />
+                <p style={s.sectionLabel}>Medio de pago</p>
+                <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                  {["efectivo", "transferencia"].map((m) => (
+                    <button
+                      key={m}
+                      style={{
+                        ...s.methodBtn,
+                        flex: 1,
+                        backgroundColor:
+                          editPaymentMethod === m ? "#E6F1FB" : "#FFF",
+                        borderColor:
+                          editPaymentMethod === m ? "#378ADD" : "#DDDDCC",
+                        color:
+                          editPaymentMethod === m ? "#185FA5" : "#666660",
+                        fontWeight: editPaymentMethod === m ? 600 : 400,
+                      }}
+                      onClick={() => setEditPaymentMethod(m)}
+                    >
+                      {m === "efectivo" ? "Efectivo" : "Transferencia"}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
 
             <div style={s.divider} />
             <div style={s.totalRow}>
