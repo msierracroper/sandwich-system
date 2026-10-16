@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../context/useAuth";
+import { theme } from "../../theme";
+
+const c = theme.color;
 
 const UNIDADES = ["unidad", "g", "kg", "ml", "l", "cm"];
 
@@ -237,8 +240,8 @@ export default function Inventario() {
                       key={item.id}
                       style={{
                         ...s.itemRow,
-                        borderColor: low ? "#F5BCBC" : "#DDDDCC",
-                        backgroundColor: low ? "#FCEBEB" : "#FFF",
+                        borderColor: low ? c.dangerBorder : c.border,
+                        backgroundColor: low ? c.dangerSoft : "#FFF",
                       }}
                     >
                       <div style={s.itemTop}>
@@ -249,15 +252,15 @@ export default function Inventario() {
                               style={{
                                 ...s.tag,
                                 backgroundColor: item.is_estimated
-                                  ? "#F0E2CF"
-                                  : "#DDE9DE",
-                                color: item.is_estimated ? "#9A5A1C" : "#2E6E4E",
+                                  ? c.warnSoft
+                                  : c.successSoft,
+                                color: item.is_estimated ? c.warn : c.success,
                               }}
                             >
                               {item.is_estimated ? "Estimado" : "Exacto"}
                             </span>
                             {item.auto_discount && (
-                              <span style={{ ...s.tag, backgroundColor: "#E6F1FB", color: "#185FA5" }}>
+                              <span style={{ ...s.tag, backgroundColor: c.accentSoft, color: c.accent }}>
                                 Auto
                               </span>
                             )}
@@ -267,7 +270,7 @@ export default function Inventario() {
                           <p
                             style={{
                               ...s.stockVal,
-                              color: low ? "#A32D2D" : "#1A1A1A",
+                              color: low ? c.danger : c.ink,
                             }}
                           >
                             {formatQty(item.stock, item.unit)}
@@ -287,7 +290,7 @@ export default function Inventario() {
                           ✏️ Editar
                         </button>
                         <button
-                          style={{ ...s.actionBtn, color: "#A32D2D" }}
+                          style={{ ...s.actionBtn, color: c.danger }}
                           onClick={() => deactivateItem(item)}
                         >
                           🗑
@@ -316,7 +319,7 @@ export default function Inventario() {
             </div>
             <div style={s.formBody}>
               <p style={s.label}>
-                Nombre <span style={{ color: "#A32D2D" }}>*</span>
+                Nombre <span style={{ color: c.danger }}>*</span>
               </p>
               <input
                 style={s.input}
@@ -334,9 +337,9 @@ export default function Inventario() {
                     key={u}
                     style={{
                       ...s.unitBtn,
-                      backgroundColor: itemForm.unit === u ? "#E6F1FB" : "#FFF",
-                      borderColor: itemForm.unit === u ? "#378ADD" : "#DDDDCC",
-                      color: itemForm.unit === u ? "#185FA5" : "#666660",
+                      backgroundColor: itemForm.unit === u ? c.accentSoft : "#FFF",
+                      borderColor: itemForm.unit === u ? c.accent : c.border,
+                      color: itemForm.unit === u ? c.accent : c.inkSoft,
                       fontWeight: itemForm.unit === u ? 600 : 400,
                     }}
                     onClick={() => setItemForm((f) => ({ ...f, unit: u }))}
@@ -374,9 +377,9 @@ export default function Inventario() {
                   style={{
                     ...s.unitBtn,
                     flex: 1,
-                    backgroundColor: !itemForm.is_estimated ? "#DDE9DE" : "#FFF",
-                    borderColor: !itemForm.is_estimated ? "#2E6E4E" : "#DDDDCC",
-                    color: !itemForm.is_estimated ? "#2E6E4E" : "#666660",
+                    backgroundColor: !itemForm.is_estimated ? c.successSoft : "#FFF",
+                    borderColor: !itemForm.is_estimated ? c.success : c.border,
+                    color: !itemForm.is_estimated ? c.success : c.inkSoft,
                     fontWeight: !itemForm.is_estimated ? 600 : 400,
                   }}
                   onClick={() =>
@@ -389,9 +392,9 @@ export default function Inventario() {
                   style={{
                     ...s.unitBtn,
                     flex: 1,
-                    backgroundColor: itemForm.is_estimated ? "#F0E2CF" : "#FFF",
-                    borderColor: itemForm.is_estimated ? "#9A5A1C" : "#DDDDCC",
-                    color: itemForm.is_estimated ? "#9A5A1C" : "#666660",
+                    backgroundColor: itemForm.is_estimated ? c.warnSoft : "#FFF",
+                    borderColor: itemForm.is_estimated ? c.warn : c.border,
+                    color: itemForm.is_estimated ? c.warn : c.inkSoft,
                     fontWeight: itemForm.is_estimated ? 600 : 400,
                   }}
                   onClick={() =>
@@ -418,7 +421,7 @@ export default function Inventario() {
                 <div
                   style={{
                     ...s.toggle,
-                    backgroundColor: itemForm.auto_discount ? "#3B6D11" : "#B0AFA5",
+                    backgroundColor: itemForm.auto_discount ? c.success : c.inkFaint,
                   }}
                 >
                   <div
@@ -469,9 +472,9 @@ export default function Inventario() {
                     style={{
                       ...s.unitBtn,
                       flex: 1,
-                      backgroundColor: moveForm.type === val ? "#E6F1FB" : "#FFF",
-                      borderColor: moveForm.type === val ? "#378ADD" : "#DDDDCC",
-                      color: moveForm.type === val ? "#185FA5" : "#666660",
+                      backgroundColor: moveForm.type === val ? c.accentSoft : "#FFF",
+                      borderColor: moveForm.type === val ? c.accent : c.border,
+                      color: moveForm.type === val ? c.accent : c.inkSoft,
                       fontWeight: moveForm.type === val ? 600 : 400,
                     }}
                     onClick={() => setMoveForm((f) => ({ ...f, type: val }))}
@@ -532,8 +535,8 @@ export default function Inventario() {
 const s = {
   page: {
     minHeight: "100vh",
-    backgroundColor: "#FAFAF8",
-    fontFamily: "sans-serif",
+    backgroundColor: c.bg,
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
   },
   topbar: {
     display: "flex",
@@ -541,50 +544,50 @@ const s = {
     justifyContent: "space-between",
     padding: "12px 16px",
     backgroundColor: "#FFF",
-    borderBottom: "0.5px solid #DDDDCC",
+    borderBottom: `0.5px solid ${c.border}`,
   },
   topLeft: { display: "flex", alignItems: "center", gap: 10 },
   backBtn: {
-    fontSize: 18,
+    fontSize: 20,
     background: "none",
     border: "none",
     cursor: "pointer",
-    color: "#666660",
+    color: c.inkSoft,
     padding: "0 4px",
   },
-  title: { fontSize: 16, fontWeight: 600, color: "#1A1A1A", margin: "0 0 2px" },
-  sub: { fontSize: 11, color: "#666660", margin: 0 },
+  title: { fontSize: 18, fontWeight: 600, color: c.ink, margin: "0 0 2px" },
+  sub: { fontSize: 13, color: c.inkSoft, margin: 0 },
   newBtn: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: 500,
-    color: "#185FA5",
-    backgroundColor: "#E6F1FB",
-    border: "0.5px solid #B5D4F4",
+    color: c.accent,
+    backgroundColor: c.accentSoft,
+    border: `0.5px solid ${c.accentBorder}`,
     borderRadius: 20,
     padding: "6px 14px",
     cursor: "pointer",
   },
   body: { padding: 16 },
-  loadTxt: { fontSize: 13, color: "#888880", textAlign: "center", padding: 20 },
+  loadTxt: { fontSize: 15, color: c.inkFaint, textAlign: "center", padding: 20 },
   alertBox: {
-    backgroundColor: "#FCEBEB",
-    border: "0.5px solid #F5BCBC",
+    backgroundColor: c.dangerSoft,
+    border: `0.5px solid ${c.dangerBorder}`,
     borderRadius: 8,
     padding: "10px 12px",
     marginBottom: 14,
   },
   alertTitle: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: 600,
-    color: "#A32D2D",
+    color: c.danger,
     margin: "0 0 8px",
   },
   alertList: { display: "flex", flexDirection: "column", gap: 5 },
   alertRow: {
     display: "flex",
     justifyContent: "space-between",
-    fontSize: 12,
-    color: "#7A2323",
+    fontSize: 14,
+    color: c.danger,
   },
   itemList: { display: "flex", flexDirection: "column", gap: 8 },
   itemRow: {
@@ -600,14 +603,14 @@ const s = {
   },
   itemLeft: { flex: 1 },
   itemName: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: 600,
-    color: "#1A1A1A",
+    color: c.ink,
     margin: "0 0 4px",
   },
   itemMeta: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" },
   tag: {
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: 600,
     padding: "2px 7px",
     borderRadius: 4,
@@ -615,18 +618,18 @@ const s = {
     letterSpacing: "0.03em",
   },
   itemRight: { textAlign: "right" },
-  stockVal: { fontSize: 15, fontWeight: 600, margin: "0 0 2px" },
-  reorderTxt: { fontSize: 10, color: "#888880", margin: 0 },
+  stockVal: { fontSize: 17, fontWeight: 600, margin: "0 0 2px" },
+  reorderTxt: { fontSize: 12, color: c.inkFaint, margin: 0 },
   itemActions: { display: "flex", gap: 6, flexWrap: "wrap" },
   actionBtn: {
-    fontSize: 11,
-    color: "#666660",
-    background: "#F1EFE8",
-    border: "0.5px solid #DDDDCC",
+    fontSize: 13,
+    color: c.inkSoft,
+    background: c.bgMuted,
+    border: `0.5px solid ${c.border}`,
     borderRadius: 6,
     padding: "5px 10px",
     cursor: "pointer",
-    fontFamily: "sans-serif",
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
   },
   overlay: {
     position: "fixed",
@@ -651,26 +654,26 @@ const s = {
     justifyContent: "space-between",
     padding: "16px 16px 0",
   },
-  modalTitle: { fontSize: 16, fontWeight: 600, color: "#1A1A1A", margin: 0 },
+  modalTitle: { fontSize: 18, fontWeight: 600, color: c.ink, margin: 0 },
   closeBtn: {
     background: "none",
     border: "none",
-    fontSize: 16,
+    fontSize: 18,
     cursor: "pointer",
-    color: "#666660",
+    color: c.inkSoft,
   },
   formBody: { padding: 16 },
-  label: { fontSize: 12, fontWeight: 500, color: "#444441", margin: "0 0 4px" },
+  label: { fontSize: 14, fontWeight: 500, color: c.inkSoft, margin: "0 0 4px" },
   input: {
     width: "100%",
-    border: "0.5px solid #B0AFA5",
+    border: `0.5px solid ${c.inkFaint}`,
     borderRadius: 8,
     padding: "10px 12px",
-    fontSize: 14,
-    color: "#1A1A1A",
-    fontFamily: "sans-serif",
+    fontSize: 16,
+    color: c.ink,
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
     outline: "none",
-    backgroundColor: "#FAFAF8",
+    backgroundColor: c.bg,
     marginBottom: 12,
     boxSizing: "border-box",
   },
@@ -679,9 +682,9 @@ const s = {
     border: "0.5px solid",
     borderRadius: 20,
     padding: "7px 12px",
-    fontSize: 12,
+    fontSize: 14,
     cursor: "pointer",
-    fontFamily: "sans-serif",
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
   },
   toggleRow: {
     display: "flex",
@@ -689,18 +692,18 @@ const s = {
     justifyContent: "space-between",
     gap: 10,
     padding: "10px 12px",
-    backgroundColor: "#F1EFE8",
+    backgroundColor: c.bgMuted,
     borderRadius: 8,
     marginBottom: 12,
     cursor: "pointer",
   },
   toggleTitle: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: 500,
-    color: "#1A1A1A",
+    color: c.ink,
     margin: "0 0 2px",
   },
-  toggleDesc: { fontSize: 11, color: "#666660", margin: 0, maxWidth: 260 },
+  toggleDesc: { fontSize: 13, color: c.inkSoft, margin: 0, maxWidth: 260 },
   toggle: {
     width: 28,
     height: 16,
@@ -717,11 +720,11 @@ const s = {
     top: 2,
     transition: "left 0.15s",
   },
-  helperTxt: { fontSize: 11, color: "#888880", margin: "0 0 12px" },
+  helperTxt: { fontSize: 13, color: c.inkFaint, margin: "0 0 12px" },
   error: {
-    fontSize: 12,
-    color: "#A32D2D",
-    backgroundColor: "#FCEBEB",
+    fontSize: 14,
+    color: c.danger,
+    backgroundColor: c.dangerSoft,
     padding: "8px 12px",
     borderRadius: 6,
     marginBottom: 12,
@@ -729,13 +732,13 @@ const s = {
   btnPrimary: {
     width: "100%",
     padding: 12,
-    backgroundColor: "#185FA5",
-    color: "#E6F1FB",
+    backgroundColor: c.accent,
+    color: "#FFFFFF",
     border: "none",
     borderRadius: 8,
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: 600,
-    fontFamily: "sans-serif",
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
     marginBottom: 8,
     cursor: "pointer",
   },
@@ -743,11 +746,11 @@ const s = {
     width: "100%",
     padding: 10,
     backgroundColor: "#FFF",
-    color: "#1A1A1A",
-    border: "0.5px solid #DDDDCC",
+    color: c.ink,
+    border: `0.5px solid ${c.border}`,
     borderRadius: 8,
-    fontSize: 13,
-    fontFamily: "sans-serif",
+    fontSize: 15,
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
     cursor: "pointer",
   },
 };

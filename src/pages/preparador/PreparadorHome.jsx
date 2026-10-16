@@ -3,30 +3,34 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../context/useAuth";
+import { theme } from "../../theme";
+
+const c = theme.color;
 
 const STATION_CONFIG = {
   frio: {
     label: "Granizados — Estación Fría",
-    headerBg: "#EAF6FF",
-    borderColor: "#B5D4F4",
-    countBg: "#B5D4F4",
-    countColor: "#0C447C",
-    titleColor: "#0C447C",
+    headerBg: c.infoSoft,
+    borderColor: c.infoBorder,
+    countBg: c.infoBorder,
+    countColor: c.info,
+    titleColor: c.info,
   },
   caliente: {
     label: "Sándwiches — Estación Caliente",
-    headerBg: "#FFF8EE",
-    borderColor: "#FAC775",
-    countBg: "#FAC775",
-    countColor: "#633806",
-    titleColor: "#633806",
+    headerBg: c.accentSoft,
+    borderColor: c.accentBorder,
+    countBg: c.accentBorder,
+    countColor: c.accentDark,
+    titleColor: c.accentDark,
   },
 };
 
+// Pildora de tipo de pedido en cada ticket — categoria, no estado.
 const TYPE_PILL_COLOR = {
-  mesa: { bg: "#E6F1FB", color: "#185FA5" },
-  domicilio: { bg: "#EAF3DE", color: "#3B6D11" },
-  para_llevar: { bg: "#FCEBEB", color: "#A32D2D" },
+  mesa: { bg: c.infoSoft, color: c.info },
+  domicilio: { bg: c.domicilioSoft, color: c.domicilio },
+  para_llevar: { bg: c.accentSoft, color: c.accentDark },
 };
 
 function timeAgo(dateStr) {
@@ -34,6 +38,23 @@ function timeAgo(dateStr) {
   if (diff < 60) return `hace ${diff}s`;
   if (diff < 3600) return `hace ${Math.floor(diff / 60)}min`;
   return `hace ${Math.floor(diff / 3600)}h`;
+}
+
+// Semaforo de urgencia para el tiempo en preparacion: verde al empezar,
+// ambar cuando se demora, rojo cuando ya es mucho tiempo esperando.
+function urgencyColor(minutes) {
+  if (minutes < 5) return { color: c.success, bg: c.successSoft };
+  if (minutes < 10) return { color: c.warn, bg: c.warnSoft };
+  return { color: c.danger, bg: c.dangerSoft };
+}
+
+function ClockIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 3" />
+    </svg>
+  );
 }
 
 function TicketCard({ ticket, onUpdate }) {
@@ -95,33 +116,38 @@ function TicketCard({ ticket, onUpdate }) {
   );
   const typeColor = TYPE_PILL_COLOR[ticket.type] ?? {
     bg: "#FFF",
-    color: "#DDDDCC",
+    color: c.border,
   };
+
+  const minutesPreparing = ticket.items[0]?.prep_started_at
+    ? Math.floor((Date.now() - new Date(ticket.items[0].prep_started_at)) / 60000)
+    : 0;
+  const urgency = urgencyColor(minutesPreparing);
 
   return (
     <div
       style={{
         ...s.ticket,
-        borderColor: isPreparing2 ? "#EF9F27" : typeColor.color,
+        borderColor: isPreparing2 ? c.accent : typeColor.color,
         borderWidth: isPreparing2 ? 1.5 : 1,
       }}
     >
       <div style={s.ticketTop}>
         <span
-          style={{ ...s.ticketId, color: isPreparing2 ? "#854F0B" : "#1A1A1A" }}
+          style={{ ...s.ticketId, color: isPreparing2 ? c.accentDark : c.ink }}
         >
           Pedido #{ticket.orderId.slice(-4).toUpperCase()}
         </span>
         <div
           style={{
             ...s.mesaPill,
-            backgroundColor: TYPE_PILL_COLOR[ticket.type]?.bg ?? "#F1EFE8",
+            backgroundColor: TYPE_PILL_COLOR[ticket.type]?.bg ?? c.bgMuted,
           }}
         >
           <span
             style={{
-              color: TYPE_PILL_COLOR[ticket.type]?.color ?? "#444441",
-              fontSize: 13,
+              color: TYPE_PILL_COLOR[ticket.type]?.color ?? c.inkSoft,
+              fontSize: 14,
               fontWeight: 700,
             }}
           >
@@ -133,7 +159,7 @@ function TicketCard({ ticket, onUpdate }) {
       </div>
 
       {ticket.combined && (
-        <div style={s.combinedBadge}>↔ También tiene items en la otra estación</div>
+        <div style={s.combinedBadge}>⇄ También tiene items en la otra estación</div>
       )}
 
       {ticket.note && (
@@ -161,21 +187,17 @@ function TicketCard({ ticket, onUpdate }) {
       </div>
 
       {isPreparing2 && ticket.items[0]?.prep_started_at && (
-        <div style={s.timerBox}>
-          ⏱{" "}
-          {Math.floor(
-            (Date.now() - new Date(ticket.items[0].prep_started_at)) / 60000,
-          )}{" "}
-          min en preparación
+        <div style={{ ...s.timerBox, color: urgency.color, backgroundColor: urgency.bg }}>
+          <ClockIcon /> {minutesPreparing} min en preparación
         </div>
       )}
 
       <button
         style={{
           ...s.ticketBtn,
-          backgroundColor: isPreparing2 ? "#FAEEDA" : "#E6F1FB",
-          borderColor: isPreparing2 ? "#FAC775" : "#B5D4F4",
-          color: isPreparing2 ? "#854F0B" : "#185FA5",
+          backgroundColor: isPreparing2 ? c.successSoft : c.accentSoft,
+          borderColor: isPreparing2 ? c.success : c.accent,
+          color: isPreparing2 ? c.success : c.accentDark,
           opacity: saving ? 0.6 : 1,
           cursor: saving ? "not-allowed" : "pointer",
         }}
@@ -223,7 +245,7 @@ function StationColumn({ station, tickets, onUpdate, wide }) {
           ...(wide
             ? {
                 display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+                gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
                 alignContent: "start",
               }
             : {}),
@@ -390,8 +412,8 @@ export default function PreparadorHome() {
           <div
             style={{
               ...s.statPill,
-              backgroundColor: "#E6F1FB",
-              color: "#0C447C",
+              backgroundColor: c.infoSoft,
+              color: c.info,
             }}
           >
             Fríos: {tickets.frio.length}
@@ -399,8 +421,8 @@ export default function PreparadorHome() {
           <div
             style={{
               ...s.statPill,
-              backgroundColor: "#FAEEDA",
-              color: "#633806",
+              backgroundColor: c.accentSoft,
+              color: c.accentDark,
             }}
           >
             Calientes: {tickets.caliente.length}
@@ -416,8 +438,8 @@ export default function PreparadorHome() {
                 style={{
                   ...s.viewModeBtn,
                   borderTop: i === 0 ? "none" : s.viewModeBtn.borderTop,
-                  backgroundColor: viewMode === val ? "#1A1A1A" : "#FFF",
-                  color: viewMode === val ? "#FFF" : "#666660",
+                  backgroundColor: viewMode === val ? c.ink : c.surface,
+                  color: viewMode === val ? c.surface : c.inkSoft,
                 }}
                 onClick={() => changeViewMode(val)}
               >
@@ -463,8 +485,8 @@ const s = {
     height: "100vh",
     display: "flex",
     flexDirection: "column",
-    backgroundColor: "#FAFAF8",
-    fontFamily: "sans-serif",
+    backgroundColor: c.bg,
+    fontFamily: theme.font,
     overflow: "hidden",
   },
   loadWrap: {
@@ -473,20 +495,20 @@ const s = {
     justifyContent: "center",
     height: "100vh",
   },
-  loadTxt: { fontSize: 14, color: "#666660" },
+  loadTxt: { fontSize: 16, color: c.inkSoft },
   topbar: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
     padding: "10px 20px",
-    backgroundColor: "#FFF",
-    borderBottom: "0.5px solid #DDDDCC",
+    backgroundColor: c.surface,
+    borderBottom: `1px solid ${c.border}`,
     flexShrink: 0,
   },
-  title: { fontSize: 16, fontWeight: 600, color: "#1A1A1A", margin: "0 0 2px" },
+  title: { fontSize: 18, fontWeight: 700, color: c.ink, margin: "0 0 2px" },
   sub: {
-    fontSize: 11,
-    color: "#666660",
+    fontSize: 13,
+    color: c.inkSoft,
     margin: 0,
     textTransform: "capitalize",
   },
@@ -498,37 +520,38 @@ const s = {
     justifyContent: "flex-end",
   },
   statPill: {
-    fontSize: 12,
-    fontWeight: 500,
-    padding: "4px 12px",
+    fontSize: 13,
+    fontWeight: 700,
+    padding: "6px 13px",
     borderRadius: 20,
   },
   viewModeRow: {
     display: "flex",
     flexDirection: "column",
-    border: "0.5px solid #DDDDCC",
-    borderRadius: 8,
+    border: `1px solid ${c.border}`,
+    borderRadius: 9,
     overflow: "hidden",
   },
   viewModeBtn: {
-    fontSize: 11,
-    fontWeight: 500,
+    fontSize: 12,
+    fontWeight: 600,
     border: "none",
-    borderTop: "0.5px solid #DDDDCC",
-    padding: "6px 10px",
+    borderTop: `1px solid ${c.border}`,
+    padding: "8px 12px",
     cursor: "pointer",
-    fontFamily: "sans-serif",
+    fontFamily: theme.font,
     whiteSpace: "nowrap",
     textAlign: "left",
   },
   logoutBtn: {
-    fontSize: 12,
-    color: "#666660",
+    fontSize: 13,
+    color: c.inkSoft,
     background: "none",
-    border: "0.5px solid #DDDDCC",
-    borderRadius: 6,
-    padding: "5px 10px",
+    border: `1px solid ${c.border}`,
+    borderRadius: 8,
+    padding: "7px 13px",
     cursor: "pointer",
+    fontFamily: theme.font,
   },
   splitScreen: {
     display: "grid",
@@ -541,110 +564,117 @@ const s = {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    padding: "10px 16px",
-    borderBottom: "0.5px solid #DDDDCC",
+    padding: "11px 16px",
+    borderBottom: `1px solid ${c.border}`,
     flexShrink: 0,
   },
   stationTitle: {
-    fontSize: 12,
-    fontWeight: 600,
+    fontSize: 13,
+    fontWeight: 700,
     textTransform: "uppercase",
     letterSpacing: "0.05em",
   },
   stationCount: {
-    fontSize: 11,
-    fontWeight: 600,
-    padding: "2px 10px",
+    fontSize: 12,
+    fontWeight: 700,
+    padding: "3px 11px",
     borderRadius: 20,
   },
   ticketList: {
     flex: 1,
     overflowY: "auto",
-    padding: 12,
+    padding: 14,
     display: "flex",
     flexDirection: "column",
-    gap: 10,
+    gap: 12,
   },
   ticket: {
-    backgroundColor: "#FFF",
-    borderRadius: 8,
-    border: "0.5px solid",
-    padding: "10px 12px",
+    backgroundColor: c.surface,
+    borderRadius: 12,
+    border: "1px solid",
+    padding: "12px 14px",
+    boxShadow: theme.shadow,
   },
-  ticketTop: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 },
-  ticketId: { fontSize: 12, fontWeight: 600 },
-  mesaPill: { padding: "2px 8px", borderRadius: 20 },
-  ticketTime: { fontSize: 12, color: "#888880", marginLeft: "auto" },
+  ticketTop: { display: "flex", alignItems: "center", gap: 8, marginBottom: 9 },
+  ticketId: { fontSize: 14, fontWeight: 700 },
+  mesaPill: { padding: "3px 10px", borderRadius: 20 },
+  ticketTime: { fontSize: 13, color: c.inkFaint, marginLeft: "auto" },
   combinedBadge: {
-    fontSize: 11,
-    fontWeight: 600,
-    color: "#0C447C",
-    backgroundColor: "#E6F1FB",
-    borderRadius: 6,
-    padding: "4px 8px",
-    marginBottom: 8,
+    fontSize: 12,
+    fontWeight: 700,
+    color: c.domicilio,
+    backgroundColor: c.domicilioSoft,
+    borderRadius: 7,
+    padding: "5px 9px",
+    marginBottom: 9,
   },
   orderNoteBox: {
-    fontSize: 12,
-    color: "#663C00",
-    backgroundColor: "#FFF3D6",
-    borderRadius: 6,
-    padding: "6px 8px",
-    marginBottom: 8,
-    borderLeft: "2px solid #EF9F27",
+    fontSize: 13,
+    color: c.accentDark,
+    backgroundColor: c.accentSoft,
+    borderRadius: 7,
+    padding: "7px 9px",
+    marginBottom: 9,
+    borderLeft: `3px solid ${c.accent}`,
   },
   orderNoteLabel: { fontWeight: 700 },
   ticketItems: {
     display: "flex",
     flexDirection: "column",
-    gap: 6,
-    marginBottom: 10,
+    gap: 7,
+    marginBottom: 11,
   },
-  ticketItem: { display: "flex", alignItems: "flex-start", gap: 8 },
+  ticketItem: { display: "flex", alignItems: "flex-start", gap: 9 },
   qtyBadge: {
-    backgroundColor: "#F1EFE8",
-    border: "0.5px solid #DDDDCC",
-    borderRadius: 4,
-    padding: "1px 6px",
-    fontSize: 18,
+    backgroundColor: c.bgMuted,
+    border: `1px solid ${c.border}`,
+    borderRadius: 5,
+    padding: "2px 7px",
+    fontSize: 19,
     fontWeight: 700,
-    color: "#242121",
+    color: c.ink,
     flexShrink: 0,
   },
-  itemName: { fontSize: 14, fontWeight: 700, color: "#1A1A1A", margin: 0 },
-  subcuentaTag: { fontSize: 12, fontWeight: 600, color: "#185FA5" },
+  itemName: { fontSize: 15, fontWeight: 700, color: c.ink, margin: 0 },
+  subcuentaTag: { fontSize: 13, fontWeight: 600, color: c.info },
   itemNote: {
-    fontSize: 13,
-    color: "#A32D2D",
+    fontSize: 14,
+    color: c.danger,
     margin: 0,
     fontStyle: "italic",
     fontWeight: 600,
   },
   ticketBtn: {
     width: "100%",
-    padding: "7px",
-    border: "0.5px solid",
-    borderRadius: 6,
-    fontSize: 12,
-    fontWeight: 500,
-    fontFamily: "sans-serif",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    padding: "11px",
+    border: "1.5px solid",
+    borderRadius: 9,
+    fontSize: 14,
+    fontWeight: 700,
+    fontFamily: theme.font,
+    cursor: "pointer",
+    minHeight: 44,
   },
   emptySlot: {
-    border: "1px dashed #DDDDCC",
-    borderRadius: 8,
-    padding: 24,
+    border: `1.5px dashed ${c.border}`,
+    borderRadius: 10,
+    padding: 26,
     textAlign: "center",
   },
-  emptyTxt: { fontSize: 14, color: "#888880", margin: 0 },
+  emptyTxt: { fontSize: 15, color: c.inkFaint, margin: 0 },
   timerBox: {
-    fontSize: 11,
-    fontWeight: 600,
-    color: "#854F0B",
-    backgroundColor: "#FAEEDA",
-    borderRadius: 6,
-    padding: "4px 8px",
-    marginBottom: 8,
-    textAlign: "center",
-    borderLeft: "2px solid #EF9F27",
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    fontSize: 12,
+    fontWeight: 700,
+    borderRadius: 7,
+    padding: "5px 9px",
+    marginBottom: 9,
+    justifyContent: "center",
   },
 };

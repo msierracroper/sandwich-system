@@ -34,7 +34,7 @@ const styles = {
     height: '100vh', backgroundColor: '#FAFAF8',
   },
   loadingText: {
-    fontSize: 14, color: '#666660', fontFamily: 'sans-serif',
+    fontSize: 14, color: '#666660', fontFamily: "'Plus Jakarta Sans', sans-serif",
   }
 }
  

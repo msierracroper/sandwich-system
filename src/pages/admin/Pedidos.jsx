@@ -3,19 +3,22 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
+import { theme } from "../../theme";
+
+const c = theme.color;
 
 const STATUS_LABEL = {
-  abierto: { label: "Abierto", bg: "#E6F1FB", color: "#185FA5" },
-  en_preparacion: { label: "Preparando", bg: "#FAEEDA", color: "#854F0B" },
-  listo: { label: "Listo", bg: "#EAF3DE", color: "#3B6D11" },
-  entregado: { label: "Entregado", bg: "#E6F1FB", color: "#185FA5" },
-  cerrado: { label: "Cerrado", bg: "#F1EFE8", color: "#444441" },
+  abierto: { label: "Abierto", bg: c.infoSoft, color: c.info },
+  en_preparacion: { label: "Preparando", bg: c.warnSoft, color: c.warn },
+  listo: { label: "Listo", bg: c.successSoft, color: c.success },
+  entregado: { label: "Entregado", bg: c.infoSoft, color: c.info },
+  cerrado: { label: "Cerrado", bg: c.bgMuted, color: c.inkSoft },
 };
 
 const PREP_LABEL = {
-  pendiente: { label: "Pendiente", color: "#888880" },
-  en_preparacion: { label: "Preparando", color: "#854F0B" },
-  listo: { label: "Listo", color: "#3B6D11" },
+  pendiente: { label: "Pendiente", color: c.inkFaint },
+  en_preparacion: { label: "Preparando", color: c.warn },
+  listo: { label: "Listo", color: c.success },
 };
 
 const CATEGORIAS = [
@@ -414,9 +417,9 @@ export default function Pedidos() {
                 key={val}
                 style={{
                   ...s.filterBtn,
-                  backgroundColor: filterStatus === val ? "#E6F1FB" : "#FFF",
-                  borderColor: filterStatus === val ? "#378ADD" : "#DDDDCC",
-                  color: filterStatus === val ? "#185FA5" : "#666660",
+                  backgroundColor: filterStatus === val ? c.accentSoft : "#FFF",
+                  borderColor: filterStatus === val ? c.accent : c.border,
+                  color: filterStatus === val ? c.accent : c.inkSoft,
                   fontWeight: filterStatus === val ? 600 : 400,
                 }}
                 onClick={() => setFilterStatus(val)}
@@ -440,9 +443,9 @@ export default function Pedidos() {
                     key={order.id}
                     style={{
                       ...s.orderCard,
-                      borderColor: isSelected ? "#185FA5" : "#DDDDCC",
+                      borderColor: isSelected ? c.accent : c.border,
                       borderWidth: isSelected ? 1.5 : 0.5,
-                      backgroundColor: isSelected ? "#E6F1FB" : "#FFF",
+                      backgroundColor: isSelected ? c.accentSoft : "#FFF",
                     }}
                     onClick={() => selectOrder(order)}
                   >
@@ -473,7 +476,7 @@ export default function Pedidos() {
                     </div>
                     <div style={s.orderCardMeta}>
                       <span>{formatTime(order.created_at)}</span>
-                      <span style={{ fontWeight: 500, color: "#1A1A1A" }}>
+                      <span style={{ fontWeight: 500, color: c.ink }}>
                         {formatPrice(order.total)}
                       </span>
                     </div>
@@ -621,7 +624,7 @@ export default function Pedidos() {
                             <span
                               style={{
                                 ...s.qtyNum,
-                                color: qty === 0 ? "#A32D2D" : "#1A1A1A",
+                                color: qty === 0 ? c.danger : c.ink,
                               }}
                             >
                               {qty}
@@ -641,9 +644,9 @@ export default function Pedidos() {
                           </div>
                           <p
                             style={{
-                              fontSize: 13,
+                              fontSize: 15,
                               fontWeight: 500,
-                              color: "#1A1A1A",
+                              color: c.ink,
                               minWidth: 72,
                               textAlign: "right",
                             }}
@@ -679,13 +682,13 @@ export default function Pedidos() {
                           <div
                             style={{
                               ...s.itemRow,
-                              backgroundColor: "#EAF3DE",
+                              backgroundColor: c.successSoft,
                               borderRadius: 6,
                               padding: "8px 6px",
                             }}
                           >
                             <div style={s.itemLeft}>
-                              <p style={{ ...s.itemName, color: "#3B6D11" }}>
+                              <p style={{ ...s.itemName, color: c.success }}>
                                 + {p.name}
                               </p>
                               <p style={s.itemNote}>
@@ -722,9 +725,9 @@ export default function Pedidos() {
                             </div>
                             <p
                               style={{
-                                fontSize: 13,
+                                fontSize: 15,
                                 fontWeight: 500,
-                                color: "#3B6D11",
+                                color: c.success,
                                 minWidth: 72,
                                 textAlign: "right",
                               }}
@@ -765,11 +768,11 @@ export default function Pedidos() {
                             style={{
                               ...s.catTab,
                               backgroundColor:
-                                catFilter === cat.value ? "#E6F1FB" : "#FFF",
+                                catFilter === cat.value ? c.accentSoft : "#FFF",
                               borderColor:
-                                catFilter === cat.value ? "#378ADD" : "#DDDDCC",
+                                catFilter === cat.value ? c.accent : c.border,
                               color:
-                                catFilter === cat.value ? "#185FA5" : "#666660",
+                                catFilter === cat.value ? c.accent : c.inkSoft,
                             }}
                             onClick={() => setCatFilter(cat.value)}
                           >
@@ -816,7 +819,7 @@ export default function Pedidos() {
                     </div>
                   )}
 
-                  <p style={{ fontSize: 11, fontWeight: 500, color: "#666660", marginBottom: 8 }}>
+                  <p style={{ fontSize: 13, fontWeight: 500, color: c.inkSoft, marginBottom: 8 }}>
                     Nota general del pedido
                   </p>
                   <textarea
@@ -829,7 +832,7 @@ export default function Pedidos() {
 
                   {selected.type === "domicilio" && (
                     <>
-                      <p style={{ fontSize: 11, fontWeight: 500, color: "#666660", margin: "10px 0 8px" }}>
+                      <p style={{ fontSize: 13, fontWeight: 500, color: c.inkSoft, margin: "10px 0 8px" }}>
                         Datos de domicilio
                       </p>
                       <input
@@ -851,7 +854,7 @@ export default function Pedidos() {
                         value={editCustomerPhone}
                         onChange={(e) => setEditCustomerPhone(e.target.value)}
                       />
-                      <p style={{ fontSize: 11, fontWeight: 500, color: "#666660", marginBottom: 8 }}>
+                      <p style={{ fontSize: 13, fontWeight: 500, color: c.inkSoft, marginBottom: 8 }}>
                         Medio de pago
                       </p>
                       <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
@@ -862,11 +865,11 @@ export default function Pedidos() {
                               ...s.methodBtn,
                               flex: 1,
                               backgroundColor:
-                                editPaymentMethod === m ? "#E6F1FB" : "#FFF",
+                                editPaymentMethod === m ? c.accentSoft : "#FFF",
                               borderColor:
-                                editPaymentMethod === m ? "#378ADD" : "#DDDDCC",
+                                editPaymentMethod === m ? c.accent : c.border,
                               color:
-                                editPaymentMethod === m ? "#185FA5" : "#666660",
+                                editPaymentMethod === m ? c.accent : c.inkSoft,
                               fontWeight: editPaymentMethod === m ? 600 : 400,
                             }}
                             onClick={() => setEditPaymentMethod(m)}
@@ -946,9 +949,9 @@ export default function Pedidos() {
                   <div style={s.divider} />
                   <p
                     style={{
-                      fontSize: 11,
+                      fontSize: 13,
                       fontWeight: 500,
-                      color: "#666660",
+                      color: c.inkSoft,
                       marginBottom: 8,
                     }}
                   >
@@ -971,9 +974,9 @@ export default function Pedidos() {
                             backgroundColor:
                               selected.status === st ? stInfo.bg : "#FFF",
                             borderColor:
-                              selected.status === st ? stInfo.color : "#DDDDCC",
+                              selected.status === st ? stInfo.color : c.border,
                             color:
-                              selected.status === st ? stInfo.color : "#666660",
+                              selected.status === st ? stInfo.color : c.inkSoft,
                             fontWeight: selected.status === st ? 600 : 400,
                           }}
                           onClick={() => changeStatus(selected, st)}
@@ -1044,8 +1047,8 @@ export default function Pedidos() {
 const s = {
   page: {
     minHeight: "100vh",
-    backgroundColor: "#FAFAF8",
-    fontFamily: "sans-serif",
+    backgroundColor: c.bg,
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
     display: "flex",
     flexDirection: "column",
   },
@@ -1055,25 +1058,25 @@ const s = {
     justifyContent: "space-between",
     padding: "12px 16px",
     backgroundColor: "#FFF",
-    borderBottom: "0.5px solid #DDDDCC",
+    borderBottom: `0.5px solid ${c.border}`,
     flexShrink: 0,
   },
   topLeft: { display: "flex", alignItems: "center", gap: 10 },
   backBtn: {
-    fontSize: 18,
+    fontSize: 20,
     background: "none",
     border: "none",
     cursor: "pointer",
-    color: "#666660",
+    color: c.inkSoft,
     padding: "0 4px",
   },
-  title: { fontSize: 16, fontWeight: 600, color: "#1A1A1A", margin: "0 0 2px" },
-  sub: { fontSize: 11, color: "#666660", margin: 0 },
+  title: { fontSize: 18, fontWeight: 600, color: c.ink, margin: "0 0 2px" },
+  sub: { fontSize: 13, color: c.inkSoft, margin: 0 },
   refreshBtn: {
-    fontSize: 12,
-    color: "#185FA5",
-    backgroundColor: "#E6F1FB",
-    border: "0.5px solid #B5D4F4",
+    fontSize: 14,
+    color: c.accent,
+    backgroundColor: c.accentSoft,
+    border: `0.5px solid ${c.accentBorder}`,
     borderRadius: 20,
     padding: "5px 12px",
     cursor: "pointer",
@@ -1085,7 +1088,7 @@ const s = {
     overflow: "hidden",
   },
   leftPanel: {
-    borderRight: "0.5px solid #DDDDCC",
+    borderRight: `0.5px solid ${c.border}`,
     overflow: "auto",
     display: "flex",
     flexDirection: "column",
@@ -1096,19 +1099,19 @@ const s = {
     gap: 4,
     padding: "8px 10px",
     overflowX: "auto",
-    borderBottom: "0.5px solid #DDDDCC",
+    borderBottom: `0.5px solid ${c.border}`,
     flexShrink: 0,
   },
   filterBtn: {
     border: "0.5px solid",
     borderRadius: 20,
     padding: "4px 10px",
-    fontSize: 11,
+    fontSize: 13,
     cursor: "pointer",
     whiteSpace: "nowrap",
-    fontFamily: "sans-serif",
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
   },
-  loadTxt: { fontSize: 13, color: "#888880", textAlign: "center", padding: 20 },
+  loadTxt: { fontSize: 15, color: c.inkFaint, textAlign: "center", padding: 20 },
   orderList: { display: "flex", flexDirection: "column", gap: 6, padding: 10 },
   orderCard: {
     border: "solid",
@@ -1123,22 +1126,22 @@ const s = {
     marginBottom: 4,
   },
   orderCardTitle: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: 500,
-    color: "#1A1A1A",
+    color: c.ink,
     margin: 0,
   },
   prepaidBadge: {
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: 600,
-    color: "#3B6D11",
-    backgroundColor: "#EAF3DE",
+    color: c.success,
+    backgroundColor: c.successSoft,
     padding: "1px 6px",
     borderRadius: 20,
     marginLeft: 6,
   },
   statusPill: {
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: 500,
     padding: "2px 8px",
     borderRadius: 20,
@@ -1146,8 +1149,8 @@ const s = {
   orderCardMeta: {
     display: "flex",
     justifyContent: "space-between",
-    fontSize: 11,
-    color: "#888880",
+    fontSize: 13,
+    color: c.inkFaint,
   },
   emptyDetail: {
     display: "flex",
@@ -1155,7 +1158,7 @@ const s = {
     justifyContent: "center",
     height: "100%",
   },
-  emptyTxt: { fontSize: 13, color: "#888880", textAlign: "center" },
+  emptyTxt: { fontSize: 15, color: c.inkFaint, textAlign: "center" },
   detailHeader: {
     display: "flex",
     justifyContent: "space-between",
@@ -1163,25 +1166,25 @@ const s = {
     marginBottom: 12,
   },
   detailTitle: {
-    fontSize: 15,
+    fontSize: 17,
     fontWeight: 600,
-    color: "#1A1A1A",
+    color: c.ink,
     margin: "0 0 2px",
   },
-  detailSub: { fontSize: 11, color: "#666660", margin: 0 },
+  detailSub: { fontSize: 13, color: c.inkSoft, margin: 0 },
   editBtn: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: 500,
-    color: "#854F0B",
-    backgroundColor: "#FAEEDA",
-    border: "0.5px solid #FAC775",
+    color: c.warn,
+    backgroundColor: c.warnSoft,
+    border: `0.5px solid ${c.warnBorder}`,
     borderRadius: 20,
     padding: "5px 10px",
     cursor: "pointer",
   },
   mesaChangerBox: {
     backgroundColor: "#FFF",
-    border: "0.5px solid #DDDDCC",
+    border: `0.5px solid ${c.border}`,
     borderRadius: 8,
     padding: 14,
     marginBottom: 12,
@@ -1193,16 +1196,16 @@ const s = {
     marginBottom: 10,
   },
   mesaChangerTitle: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: 600,
-    color: "#1A1A1A",
+    color: c.ink,
     margin: 0,
   },
   mesaChangerClose: {
     background: "none",
     border: "none",
-    fontSize: 14,
-    color: "#666660",
+    fontSize: 16,
+    color: c.inkSoft,
     cursor: "pointer",
     padding: "0 4px",
   },
@@ -1212,106 +1215,106 @@ const s = {
     gap: 8,
   },
   mesaChangerBtn: {
-    border: "0.5px solid #B5D4F4",
-    backgroundColor: "#E6F1FB",
-    color: "#185FA5",
+    border: `0.5px solid ${c.accentBorder}`,
+    backgroundColor: c.accentSoft,
+    color: c.accent,
     borderRadius: 8,
     padding: "10px 4px",
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: 500,
-    fontFamily: "sans-serif",
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
   },
-  emptyMesaTxt: { fontSize: 12, color: "#888880", margin: 0 },
+  emptyMesaTxt: { fontSize: 14, color: c.inkFaint, margin: 0 },
   cancelBtn: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: 500,
-    color: "#A32D2D",
-    backgroundColor: "#FCEBEB",
-    border: "0.5px solid #F5BCBC",
+    color: c.danger,
+    backgroundColor: c.dangerSoft,
+    border: `0.5px solid ${c.dangerBorder}`,
     borderRadius: 20,
     padding: "5px 10px",
     cursor: "pointer",
   },
   itemsBox: {
-    backgroundColor: "#F1EFE8",
+    backgroundColor: c.bgMuted,
     borderRadius: 8,
     padding: "10px 14px",
     marginBottom: 10,
   },
   editBox: {
     backgroundColor: "#FFF",
-    border: "1.5px solid #EF9F27",
+    border: `1.5px solid ${c.accent}`,
     borderRadius: 10,
     padding: "12px 14px",
     marginBottom: 10,
   },
   editTitle: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: 600,
-    color: "#854F0B",
+    color: c.warn,
     margin: "0 0 2px",
   },
-  editSub: { fontSize: 11, color: "#888880", margin: "0 0 12px" },
+  editSub: { fontSize: 13, color: c.inkFaint, margin: "0 0 12px" },
   itemRow: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
     padding: "8px 0",
-    borderBottom: "0.5px solid #DDDDCC",
+    borderBottom: `0.5px solid ${c.border}`,
   },
   itemLeft: { flex: 1 },
   itemName: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: 500,
-    color: "#1A1A1A",
+    color: c.ink,
     margin: "0 0 2px",
   },
   itemNote: {
-    fontSize: 12,
-    color: "#A32D2D",
+    fontSize: 14,
+    color: c.danger,
     margin: 0,
     fontStyle: "italic",
     fontWeight: 500,
   },
   subcuentaTag: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: 500,
-    color: "#185FA5",
+    color: c.accent,
   },
   noteInput: {
     width: "100%",
-    border: "0.5px solid #DDDDCC",
+    border: `0.5px solid ${c.border}`,
     borderRadius: 6,
     padding: "6px 10px",
-    fontSize: 11,
-    color: "#444441",
-    fontFamily: "sans-serif",
-    backgroundColor: "#FAFAF8",
+    fontSize: 13,
+    color: c.inkSoft,
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
+    backgroundColor: c.bg,
     marginTop: 6,
     marginBottom: 8,
     boxSizing: "border-box",
-    borderLeft: "2px solid #378ADD",
+    borderLeft: `2px solid ${c.accent}`,
   },
   generalNoteTextarea: {
     width: "100%",
-    border: "0.5px solid #DDDDCC",
+    border: `0.5px solid ${c.border}`,
     borderRadius: 8,
     padding: "8px 12px",
-    fontSize: 12,
-    color: "#666660",
-    fontFamily: "sans-serif",
-    backgroundColor: "#F1EFE8",
+    fontSize: 14,
+    color: c.inkSoft,
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
+    backgroundColor: c.bgMuted,
     resize: "none",
     boxSizing: "border-box",
   },
   fieldInput: {
     width: "100%",
-    border: "0.5px solid #DDDDCC",
+    border: `0.5px solid ${c.border}`,
     borderRadius: 8,
     padding: "10px 12px",
-    fontSize: 13,
-    color: "#1A1A1A",
-    fontFamily: "sans-serif",
+    fontSize: 15,
+    color: c.ink,
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
     backgroundColor: "#FFF",
     marginBottom: 8,
     boxSizing: "border-box",
@@ -1320,45 +1323,45 @@ const s = {
     border: "0.5px solid",
     borderRadius: 8,
     padding: "10px 8px",
-    fontSize: 12,
+    fontSize: 14,
     cursor: "pointer",
-    fontFamily: "sans-serif",
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
   },
   itemRight: { textAlign: "right" },
   itemPrice: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: 500,
-    color: "#1A1A1A",
+    color: c.ink,
     margin: "0 0 2px",
   },
-  itemStatus: { fontSize: 10, margin: 0 },
+  itemStatus: { fontSize: 12, margin: 0 },
   qtyCtrl: { display: "flex", alignItems: "center", gap: 8, marginRight: 10 },
   qtyBtn: {
     width: 26,
     height: 26,
     borderRadius: "50%",
-    backgroundColor: "#F1EFE8",
-    border: "0.5px solid #DDDDCC",
-    fontSize: 16,
+    backgroundColor: c.bgMuted,
+    border: `0.5px solid ${c.border}`,
+    fontSize: 18,
     cursor: "pointer",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
   },
-  qtyNum: { fontSize: 14, fontWeight: 500, minWidth: 16, textAlign: "center" },
-  divider: { height: "0.5px", backgroundColor: "#DDDDCC", margin: "10px 0" },
+  qtyNum: { fontSize: 16, fontWeight: 500, minWidth: 16, textAlign: "center" },
+  divider: { height: "0.5px", backgroundColor: c.border, margin: "10px 0" },
   totalRow: {
     display: "flex",
     justifyContent: "space-between",
-    fontSize: 15,
+    fontSize: 17,
     fontWeight: 600,
-    color: "#1A1A1A",
+    color: c.ink,
     padding: "4px 0",
   },
   noteBox: {
-    fontSize: 12,
-    color: "#666660",
-    backgroundColor: "#F1EFE8",
+    fontSize: 14,
+    color: c.inkSoft,
+    backgroundColor: c.bgMuted,
     borderRadius: 6,
     padding: "8px 10px",
     fontStyle: "italic",
@@ -1368,25 +1371,25 @@ const s = {
     border: "0.5px solid",
     borderRadius: 20,
     padding: "5px 12px",
-    fontSize: 11,
+    fontSize: 13,
     cursor: "pointer",
-    fontFamily: "sans-serif",
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
   },
   addProdBtn: {
     width: "100%",
     padding: "8px 12px",
-    backgroundColor: "#E6F1FB",
-    color: "#185FA5",
-    border: "0.5px solid #B5D4F4",
+    backgroundColor: c.accentSoft,
+    color: c.accent,
+    border: `0.5px solid ${c.accentBorder}`,
     borderRadius: 8,
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: 500,
     cursor: "pointer",
-    fontFamily: "sans-serif",
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
   },
   addProdBox: {
-    backgroundColor: "#FAFAF8",
-    border: "0.5px solid #DDDDCC",
+    backgroundColor: c.bg,
+    border: `0.5px solid ${c.border}`,
     borderRadius: 8,
     padding: "10px",
     marginTop: 8,
@@ -1396,39 +1399,39 @@ const s = {
     border: "0.5px solid",
     borderRadius: 20,
     padding: "4px 10px",
-    fontSize: 11,
+    fontSize: 13,
     cursor: "pointer",
     whiteSpace: "nowrap",
-    fontFamily: "sans-serif",
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
   },
   prodRow: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
     padding: "7px 4px",
-    borderBottom: "0.5px solid #DDDDCC",
+    borderBottom: `0.5px solid ${c.border}`,
   },
   btnPrimary: {
     width: "100%",
     padding: 12,
-    backgroundColor: "#185FA5",
-    color: "#E6F1FB",
+    backgroundColor: c.accent,
+    color: "#FFFFFF",
     border: "none",
     borderRadius: 8,
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: 600,
-    fontFamily: "sans-serif",
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
     marginTop: 4,
     cursor: "pointer",
   },
   btnGhost: {
     padding: 10,
     backgroundColor: "#FFF",
-    color: "#1A1A1A",
-    border: "0.5px solid #DDDDCC",
+    color: c.ink,
+    border: `0.5px solid ${c.border}`,
     borderRadius: 8,
-    fontSize: 13,
-    fontFamily: "sans-serif",
+    fontSize: 15,
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
     cursor: "pointer",
   },
 };

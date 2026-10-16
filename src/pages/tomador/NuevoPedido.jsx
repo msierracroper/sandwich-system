@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../context/useAuth";
+import { theme } from "../../theme";
+
+const c = theme.color;
 
 const TIPOS = [
   { value: "mesa", label: "Mesa" },
@@ -21,6 +24,14 @@ const CATEGORIAS = [
   { value: "granizado", label: "Granizados" },
   { value: "adicion", label: "Adiciones" },
 ];
+
+function BackIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M15 18l-6-6 6-6" />
+    </svg>
+  );
+}
 
 export default function NuevoPedido() {
   const { profile } = useAuth();
@@ -207,8 +218,8 @@ export default function NuevoPedido() {
       <div style={s.page}>
         <div style={s.topbar}>
           <div style={s.topLeft}>
-            <button style={s.backBtn} onClick={() => navigate("/tomador")}>
-              ←
+            <button style={s.backBtn} onClick={() => navigate("/tomador")} aria-label="Volver">
+              <BackIcon />
             </button>
             <div>
               <p style={s.title}>Nuevo pedido</p>
@@ -218,8 +229,8 @@ export default function NuevoPedido() {
           <div
             style={{
               ...s.pill,
-              backgroundColor: totalItems() > 0 ? "#E6F1FB" : "#F1EFE8",
-              color: totalItems() > 0 ? "#185FA5" : "#888880",
+              backgroundColor: totalItems() > 0 ? c.accentSoft : c.bgMuted,
+              color: totalItems() > 0 ? c.accentDark : c.inkFaint,
             }}
           >
             {totalItems()} item{totalItems() !== 1 ? "s" : ""}
@@ -228,11 +239,11 @@ export default function NuevoPedido() {
 
         {/* Steps */}
         <div style={s.steps}>
-          <div style={{ ...s.stepDot, backgroundColor: "#185FA5" }} />
+          <div style={{ ...s.stepDot, backgroundColor: c.accent }} />
           <div style={s.stepLine} />
-          <div style={{ ...s.stepDot, backgroundColor: "#D3D1C7" }} />
+          <div style={{ ...s.stepDot, backgroundColor: c.borderStrong }} />
           <div style={s.stepLine} />
-          <div style={{ ...s.stepDot, backgroundColor: "#D3D1C7" }} />
+          <div style={{ ...s.stepDot, backgroundColor: c.borderStrong }} />
         </div>
 
         <div style={s.body}>
@@ -244,10 +255,10 @@ export default function NuevoPedido() {
                 key={t.value}
                 style={{
                   ...s.tipoBtn,
-                  backgroundColor: tipo === t.value ? "#E6F1FB" : "#FFF",
-                  borderColor: tipo === t.value ? "#378ADD" : "#DDDDCC",
-                  color: tipo === t.value ? "#185FA5" : "#666660",
-                  fontWeight: tipo === t.value ? 600 : 400,
+                  backgroundColor: tipo === t.value ? c.accentSoft : c.surface,
+                  borderColor: tipo === t.value ? c.accent : c.border,
+                  color: tipo === t.value ? c.accentDark : c.inkSoft,
+                  fontWeight: tipo === t.value ? 700 : 500,
                 }}
                 onClick={() => setTipo(t.value)}
               >
@@ -266,10 +277,10 @@ export default function NuevoPedido() {
                 key={label}
                 style={{
                   ...s.catBtn,
-                  backgroundColor: activeSubcuenta === label ? "#E6F1FB" : "#FFF",
-                  borderColor: activeSubcuenta === label ? "#378ADD" : "#DDDDCC",
-                  color: activeSubcuenta === label ? "#185FA5" : "#666660",
-                  fontWeight: activeSubcuenta === label ? 600 : 400,
+                  backgroundColor: activeSubcuenta === label ? c.accentSoft : c.surface,
+                  borderColor: activeSubcuenta === label ? c.accent : c.border,
+                  color: activeSubcuenta === label ? c.accentDark : c.inkSoft,
+                  fontWeight: activeSubcuenta === label ? 700 : 500,
                 }}
                 onClick={() => setActiveSubcuenta(label)}
               >
@@ -295,10 +306,10 @@ export default function NuevoPedido() {
                 key={cat.value}
                 style={{
                   ...s.catBtn,
-                  backgroundColor: categoria === cat.value ? "#E6F1FB" : "#FFF",
-                  borderColor: categoria === cat.value ? "#378ADD" : "#DDDDCC",
-                  color: categoria === cat.value ? "#185FA5" : "#666660",
-                  fontWeight: categoria === cat.value ? 600 : 400,
+                  backgroundColor: categoria === cat.value ? c.accentSoft : c.surface,
+                  borderColor: categoria === cat.value ? c.accent : c.border,
+                  color: categoria === cat.value ? c.accentDark : c.inkSoft,
+                  fontWeight: categoria === cat.value ? 700 : 500,
                 }}
                 onClick={() => setCategoria(cat.value)}
               >
@@ -312,32 +323,42 @@ export default function NuevoPedido() {
             {filteredProducts().length === 0 && (
               <p style={s.emptyTxt}>No hay productos en esta categoria</p>
             )}
-            {filteredProducts().map((p) => (
-              <div key={p.id} style={s.prodRow}>
-                <div style={s.prodInfo}>
-                  <p style={s.prodName}>{p.name}</p>
-                  <p style={s.prodPrice}>{formatPrice(p.price)}</p>
+            {filteredProducts().map((p) => {
+              const selected = qtyFor(p.id) > 0;
+              return (
+                <div
+                  key={p.id}
+                  style={{
+                    ...s.prodRow,
+                    borderColor: selected ? c.accent : c.border,
+                    backgroundColor: selected ? c.accentSoft : c.surface,
+                  }}
+                >
+                  <div style={s.prodInfo}>
+                    <p style={s.prodName}>{p.name}</p>
+                    <p style={s.prodPrice}>{formatPrice(p.price)}</p>
+                  </div>
+                  <div style={s.qtyCtrl}>
+                    <button style={s.qtyBtn} onClick={() => removeItem(p.id)} aria-label={`Quitar ${p.name}`}>
+                      −
+                    </button>
+                    <span style={s.qtyNum}>{qtyFor(p.id)}</span>
+                    <button style={s.qtyBtn} onClick={() => addItem(p.id)} aria-label={`Agregar ${p.name}`}>
+                      +
+                    </button>
+                  </div>
+                  {/* Nota por item — aparece solo cuando tiene cantidad */}
+                  {selected && (
+                    <input
+                      style={s.noteInput}
+                      placeholder={`Nota para ${p.name} (ej: sin azucar, sin cebolla...)`}
+                      value={noteFor(p.id)}
+                      onChange={(e) => setNoteFor(p.id, e.target.value)}
+                    />
+                  )}
                 </div>
-                <div style={s.qtyCtrl}>
-                  <button style={s.qtyBtn} onClick={() => removeItem(p.id)}>
-                    −
-                  </button>
-                  <span style={s.qtyNum}>{qtyFor(p.id)}</span>
-                  <button style={s.qtyBtn} onClick={() => addItem(p.id)}>
-                    +
-                  </button>
-                </div>
-                {/* Nota por item — aparece solo cuando tiene cantidad */}
-                {qtyFor(p.id) > 0 && (
-                  <input
-                    style={s.noteInput}
-                    placeholder={`Nota para ${p.name} (ej: sin azucar, sin cebolla...)`}
-                    value={noteFor(p.id)}
-                    onChange={(e) => setNoteFor(p.id, e.target.value)}
-                  />
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Nota general */}
@@ -379,11 +400,11 @@ export default function NuevoPedido() {
                     style={{
                       ...s.catBtn,
                       backgroundColor:
-                        paymentMethod === m.value ? "#E6F1FB" : "#FFF",
+                        paymentMethod === m.value ? c.accentSoft : c.surface,
                       borderColor:
-                        paymentMethod === m.value ? "#378ADD" : "#DDDDCC",
-                      color: paymentMethod === m.value ? "#185FA5" : "#666660",
-                      fontWeight: paymentMethod === m.value ? 600 : 400,
+                        paymentMethod === m.value ? c.accent : c.border,
+                      color: paymentMethod === m.value ? c.accentDark : c.inkSoft,
+                      fontWeight: paymentMethod === m.value ? 700 : 500,
                     }}
                     onClick={() => setPaymentMethod(m.value)}
                   >
@@ -416,8 +437,8 @@ export default function NuevoPedido() {
     <div style={s.page}>
       <div style={s.topbar}>
         <div style={s.topLeft}>
-          <button style={s.backBtn} onClick={() => setStep("items")}>
-            ←
+          <button style={s.backBtn} onClick={() => setStep("items")} aria-label="Volver">
+            <BackIcon />
           </button>
           <div>
             <p style={s.title}>Resumen</p>
@@ -435,11 +456,11 @@ export default function NuevoPedido() {
 
       {/* Steps */}
       <div style={s.steps}>
-        <div style={{ ...s.stepDot, backgroundColor: "#378ADD" }} />
-        <div style={{ ...s.stepLine, backgroundColor: "#378ADD" }} />
-        <div style={{ ...s.stepDot, backgroundColor: "#185FA5" }} />
+        <div style={{ ...s.stepDot, backgroundColor: c.accent }} />
+        <div style={{ ...s.stepLine, backgroundColor: c.accent }} />
+        <div style={{ ...s.stepDot, backgroundColor: c.accent }} />
         <div style={s.stepLine} />
-        <div style={{ ...s.stepDot, backgroundColor: "#D3D1C7" }} />
+        <div style={{ ...s.stepDot, backgroundColor: c.borderStrong }} />
       </div>
 
       <div style={s.body}>
@@ -499,8 +520,8 @@ export default function NuevoPedido() {
               <div
                 style={{
                   ...s.badge,
-                  backgroundColor: "#FAEEDA",
-                  color: "#854F0B",
+                  backgroundColor: c.warnSoft,
+                  color: c.warn,
                 }}
               >
                 caliente + frio
@@ -557,8 +578,8 @@ export default function NuevoPedido() {
 const s = {
   page: {
     minHeight: "100vh",
-    backgroundColor: "#FAFAF8",
-    fontFamily: "sans-serif",
+    backgroundColor: c.bg,
+    fontFamily: theme.font,
   },
   loadWrap: {
     display: "flex",
@@ -566,235 +587,250 @@ const s = {
     justifyContent: "center",
     height: "100vh",
   },
-  loadTxt: { fontSize: 14, color: "#666660" },
+  loadTxt: { fontSize: 15, color: c.inkSoft },
   topbar: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    padding: "12px 16px",
-    backgroundColor: "#FFF",
-    borderBottom: "0.5px solid #DDDDCC",
+    padding: "14px 16px",
+    backgroundColor: c.surface,
+    borderBottom: `1px solid ${c.border}`,
   },
-  topLeft: { display: "flex", alignItems: "center", gap: 10 },
+  topLeft: { display: "flex", alignItems: "center", gap: 12 },
   backBtn: {
-    fontSize: 18,
-    background: "none",
-    border: "none",
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    border: `1px solid ${c.border}`,
+    background: c.surface,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
     cursor: "pointer",
-    color: "#666660",
-    padding: "0 4px",
+    color: c.ink,
+    flexShrink: 0,
+    padding: 0,
   },
-  title: { fontSize: 15, fontWeight: 600, color: "#1A1A1A", margin: "0 0 2px" },
-  sub: { fontSize: 11, color: "#666660", margin: 0 },
+  title: { fontSize: 17, fontWeight: 700, color: c.ink, margin: "0 0 2px" },
+  sub: { fontSize: 13, color: c.inkSoft, margin: 0 },
   pill: {
-    fontSize: 12,
-    fontWeight: 500,
-    padding: "4px 12px",
+    fontSize: 13,
+    fontWeight: 700,
+    padding: "5px 13px",
     borderRadius: 20,
   },
   steps: {
     display: "flex",
     alignItems: "center",
-    padding: "8px 16px",
-    backgroundColor: "#F1EFE8",
-    borderBottom: "0.5px solid #DDDDCC",
+    padding: "10px 16px",
+    backgroundColor: c.bgMuted,
+    borderBottom: `1px solid ${c.border}`,
   },
-  stepDot: { width: 8, height: 8, borderRadius: "50%", flexShrink: 0 },
-  stepLine: { flex: 1, height: 1, backgroundColor: "#DDDDCC" },
-  body: { padding: 16 },
+  stepDot: { width: 9, height: 9, borderRadius: "50%", flexShrink: 0 },
+  stepLine: { flex: 1, height: 1, backgroundColor: c.border },
+  body: { padding: 18 },
   sectionLabel: {
-    fontSize: 11,
-    fontWeight: 500,
-    color: "#666660",
-    marginBottom: 8,
+    fontSize: 13,
+    fontWeight: 600,
+    color: c.inkSoft,
+    marginBottom: 9,
   },
   tipoRow: {
     display: "grid",
     gridTemplateColumns: "repeat(3, 1fr)",
-    gap: 6,
-    marginBottom: 12,
+    gap: 7,
+    marginBottom: 14,
   },
   tipoBtn: {
-    border: "0.5px solid",
-    borderRadius: 8,
-    padding: "8px 4px",
-    fontSize: 12,
+    border: "1.5px solid",
+    borderRadius: 10,
+    padding: "11px 4px",
+    fontSize: 14,
     cursor: "pointer",
-    fontFamily: "sans-serif",
+    fontFamily: theme.font,
+    minHeight: 44,
   },
-  divider: { height: "0.5px", backgroundColor: "#DDDDCC", margin: "10px 0" },
-  catRow: { display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" },
+  divider: { height: "1px", backgroundColor: c.border, margin: "12px 0" },
+  catRow: { display: "flex", gap: 7, marginBottom: 14, flexWrap: "wrap" },
   catBtn: {
     flex: 1,
-    border: "0.5px solid",
-    borderRadius: 8,
-    padding: "7px 4px",
-    fontSize: 12,
+    border: "1.5px solid",
+    borderRadius: 10,
+    padding: "10px 6px",
+    fontSize: 14,
     cursor: "pointer",
-    fontFamily: "sans-serif",
+    fontFamily: theme.font,
+    minHeight: 44,
   },
   addSubcuentaBtn: {
-    border: "0.5px dashed #B0AFA5",
-    borderRadius: 8,
-    padding: "7px 10px",
-    fontSize: 12,
+    border: `1.5px dashed ${c.borderStrong}`,
+    borderRadius: 10,
+    padding: "10px 14px",
+    fontSize: 14,
     cursor: "pointer",
-    fontFamily: "sans-serif",
-    color: "#666660",
-    backgroundColor: "#FFF",
+    fontFamily: theme.font,
+    color: c.inkSoft,
+    backgroundColor: c.surface,
     whiteSpace: "nowrap",
+    minHeight: 44,
   },
   subcuentaHint: {
-    fontSize: 11,
-    color: "#185FA5",
-    margin: "0 0 12px",
+    fontSize: 13,
+    color: c.accentDark,
+    margin: "0 0 14px",
   },
   subcuentaHeader: {
     display: "flex",
     justifyContent: "space-between",
-    fontSize: 12,
-    fontWeight: 600,
-    color: "#185FA5",
+    fontSize: 14,
+    fontWeight: 700,
+    color: c.accentDark,
     padding: "6px 0 4px",
-    borderBottom: "0.5px solid #DDDDCC",
+    borderBottom: `1px solid ${c.border}`,
     marginBottom: 4,
   },
   prodList: {
     display: "flex",
     flexDirection: "column",
-    gap: 8,
-    marginBottom: 12,
+    gap: 10,
+    marginBottom: 14,
   },
   prodRow: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    padding: "10px 12px",
-    backgroundColor: "#FFF",
-    border: "0.5px solid #DDDDCC",
-    borderRadius: 8,
+    flexWrap: "wrap",
+    padding: "14px 14px",
+    backgroundColor: c.surface,
+    border: "1.5px solid",
+    borderRadius: 12,
+    boxShadow: theme.shadow,
+    transition: "background-color .12s, border-color .12s",
   },
-  prodInfo: { flex: 1 },
+  prodInfo: { flex: 1, minWidth: 140 },
   prodName: {
-    fontSize: 13,
-    fontWeight: 500,
-    color: "#1A1A1A",
-    margin: "0 0 2px",
-  },
-  prodPrice: { fontSize: 11, color: "#666660", margin: 0 },
-  qtyCtrl: { display: "flex", alignItems: "center", gap: 8 },
-  qtyBtn: {
-    width: 26,
-    height: 26,
-    borderRadius: "50%",
-    backgroundColor: "#F1EFE8",
-    border: "0.5px solid #DDDDCC",
     fontSize: 16,
+    fontWeight: 700,
+    color: c.ink,
+    margin: "0 0 3px",
+  },
+  prodPrice: { fontSize: 14, fontWeight: 600, color: c.inkSoft, margin: 0 },
+  qtyCtrl: { display: "flex", alignItems: "center", gap: 12 },
+  qtyBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: "50%",
+    backgroundColor: c.bgMuted,
+    border: `1.5px solid ${c.border}`,
+    fontSize: 19,
+    fontWeight: 700,
     cursor: "pointer",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontFamily: "sans-serif",
+    fontFamily: theme.font,
+    color: c.ink,
+    padding: 0,
   },
   qtyNum: {
-    fontSize: 14,
-    fontWeight: 500,
-    color: "#1A1A1A",
-    minWidth: 16,
+    fontSize: 18,
+    fontWeight: 800,
+    color: c.ink,
+    minWidth: 26,
     textAlign: "center",
   },
   textarea: {
     width: "100%",
-    border: "0.5px solid #DDDDCC",
-    borderRadius: 8,
-    padding: "8px 12px",
-    fontSize: 12,
-    color: "#666660",
-    fontFamily: "sans-serif",
-    backgroundColor: "#F1EFE8",
+    border: `1px solid ${c.border}`,
+    borderRadius: 10,
+    padding: "11px 13px",
+    fontSize: 14,
+    color: c.ink,
+    fontFamily: theme.font,
+    backgroundColor: c.bgMuted,
     resize: "none",
     marginBottom: 12,
     boxSizing: "border-box",
   },
   emptyTxt: {
-    fontSize: 13,
-    color: "#888880",
+    fontSize: 15,
+    color: c.inkFaint,
     textAlign: "center",
     padding: "20px 0",
   },
   btnPrimary: {
     width: "100%",
-    padding: 12,
-    backgroundColor: "#185FA5",
-    color: "#E6F1FB",
+    padding: 15,
+    backgroundColor: c.accent,
+    color: "#FFFFFF",
     border: "none",
-    borderRadius: 8,
-    fontSize: 14,
-    fontWeight: 600,
-    fontFamily: "sans-serif",
+    borderRadius: 10,
+    fontSize: 16,
+    fontWeight: 700,
+    fontFamily: theme.font,
     marginBottom: 8,
+    cursor: "pointer",
   },
   btnGhost: {
     width: "100%",
-    padding: 10,
-    backgroundColor: "#FFF",
-    color: "#1A1A1A",
-    border: "0.5px solid #DDDDCC",
-    borderRadius: 8,
-    fontSize: 13,
-    fontFamily: "sans-serif",
+    padding: 13,
+    backgroundColor: c.surface,
+    color: c.ink,
+    border: `1px solid ${c.border}`,
+    borderRadius: 10,
+    fontSize: 14,
+    fontFamily: theme.font,
     cursor: "pointer",
   },
   resumenBox: {
-    backgroundColor: "#F1EFE8",
-    borderRadius: 8,
-    padding: "12px 14px",
-    marginBottom: 10,
+    backgroundColor: c.bgMuted,
+    borderRadius: 12,
+    padding: "14px 16px",
+    marginBottom: 12,
   },
   resumenRow: {
     display: "flex",
     justifyContent: "space-between",
-    fontSize: 13,
-    color: "#666660",
-    padding: "3px 0",
+    fontSize: 15,
+    color: c.ink,
+    padding: "4px 0",
   },
   resumenTotal: {
     display: "flex",
     justifyContent: "space-between",
-    fontSize: 15,
-    fontWeight: 600,
-    color: "#1A1A1A",
+    fontSize: 18,
+    fontWeight: 700,
+    color: c.ink,
     padding: "4px 0",
   },
   noteBox: {
-    fontSize: 12,
-    color: "#666660",
-    backgroundColor: "#F1EFE8",
-    borderRadius: 6,
-    padding: "8px 10px",
-    fontStyle: "italic",
+    fontSize: 13,
+    color: c.inkSoft,
+    backgroundColor: c.bgMuted,
+    borderRadius: 8,
+    padding: "10px 12px",
   },
-  noteLabel: { fontWeight: 500, fontStyle: "normal" },
-  badgeRow: { display: "flex", gap: 6, marginBottom: 12 },
+  noteLabel: { fontWeight: 600, color: c.ink },
+  badgeRow: { display: "flex", gap: 7, marginBottom: 14, flexWrap: "wrap" },
   badge: {
-    fontSize: 11,
-    fontWeight: 500,
-    padding: "4px 10px",
+    fontSize: 12,
+    fontWeight: 600,
+    padding: "5px 12px",
     borderRadius: 20,
-    backgroundColor: "#E6F1FB",
-    color: "#185FA5",
+    backgroundColor: c.accentSoft,
+    color: c.accentDark,
   },
   noteInput: {
     width: "100%",
-    border: "0.5px solid #DDDDCC",
-    borderRadius: 6,
-    padding: "6px 10px",
-    fontSize: 11,
-    color: "#444441",
-    fontFamily: "sans-serif",
-    backgroundColor: "#FAFAF8",
-    marginTop: 6,
+    border: `1px solid ${c.border}`,
+    borderRadius: 8,
+    padding: "8px 12px",
+    fontSize: 13,
+    color: c.ink,
+    fontFamily: theme.font,
+    backgroundColor: c.bg,
+    marginTop: 7,
     boxSizing: "border-box",
-    borderLeft: "2px solid #378ADD",
+    borderLeft: `3px solid ${c.accent}`,
   },
 };

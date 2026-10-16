@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
+import { theme } from "../../theme";
+
+const c = theme.color;
 
 const CATEGORIAS = [
   { value: "todos", label: "Todos" },
@@ -192,9 +195,9 @@ export default function Recetas() {
                   key={cat.value}
                   style={{
                     ...s.filterBtn,
-                    backgroundColor: filtro === cat.value ? "#E6F1FB" : "#FFF",
-                    borderColor: filtro === cat.value ? "#378ADD" : "#DDDDCC",
-                    color: filtro === cat.value ? "#185FA5" : "#666660",
+                    backgroundColor: filtro === cat.value ? c.accentSoft : "#FFF",
+                    borderColor: filtro === cat.value ? c.accent : c.border,
+                    color: filtro === cat.value ? c.accent : c.inkSoft,
                     fontWeight: filtro === cat.value ? 600 : 400,
                   }}
                   onClick={() => setFiltro(cat.value)}
@@ -216,8 +219,8 @@ export default function Recetas() {
                       <span
                         style={{
                           ...s.itemCountPill,
-                          backgroundColor: rows.length === 0 ? "#FAEEDA" : "#EAF3DE",
-                          color: rows.length === 0 ? "#854F0B" : "#3B6D11",
+                          backgroundColor: rows.length === 0 ? c.warnSoft : c.successSoft,
+                          color: rows.length === 0 ? c.warn : c.success,
                         }}
                       >
                         {rows.length === 0
@@ -257,11 +260,11 @@ export default function Recetas() {
                             style={{
                               ...s.tag,
                               backgroundColor: r.inventory_items?.is_estimated
-                                ? "#F0E2CF"
-                                : "#DDE9DE",
+                                ? c.warnSoft
+                                : c.successSoft,
                               color: r.inventory_items?.is_estimated
-                                ? "#9A5A1C"
-                                : "#2E6E4E",
+                                ? c.warn
+                                : c.success,
                             }}
                           >
                             {r.inventory_items?.is_estimated ? "Estimado" : "Exacto"}
@@ -328,8 +331,8 @@ export default function Recetas() {
 const s = {
   page: {
     minHeight: "100vh",
-    backgroundColor: "#FAFAF8",
-    fontFamily: "sans-serif",
+    backgroundColor: c.bg,
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
   },
   topbar: {
     display: "flex",
@@ -337,28 +340,28 @@ const s = {
     justifyContent: "space-between",
     padding: "12px 16px",
     backgroundColor: "#FFF",
-    borderBottom: "0.5px solid #DDDDCC",
+    borderBottom: `0.5px solid ${c.border}`,
   },
   topLeft: { display: "flex", alignItems: "center", gap: 10 },
   backBtn: {
-    fontSize: 18,
+    fontSize: 20,
     background: "none",
     border: "none",
     cursor: "pointer",
-    color: "#666660",
+    color: c.inkSoft,
     padding: "0 4px",
   },
-  title: { fontSize: 16, fontWeight: 600, color: "#1A1A1A", margin: "0 0 2px" },
-  sub: { fontSize: 11, color: "#666660", margin: 0 },
+  title: { fontSize: 18, fontWeight: 600, color: c.ink, margin: "0 0 2px" },
+  sub: { fontSize: 13, color: c.inkSoft, margin: 0 },
   body: { padding: 16 },
-  loadTxt: { fontSize: 13, color: "#888880", textAlign: "center", padding: 20 },
+  loadTxt: { fontSize: 15, color: c.inkFaint, textAlign: "center", padding: 20 },
   sectionLabel: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: 500,
-    color: "#666660",
+    color: c.inkSoft,
     marginBottom: 4,
   },
-  sectionHint: { fontSize: 11, color: "#888880", margin: "0 0 10px" },
+  sectionHint: { fontSize: 13, color: c.inkFaint, margin: "0 0 10px" },
   typeList: { display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 },
   typeRow: {
     display: "flex",
@@ -366,30 +369,30 @@ const s = {
     alignItems: "center",
     padding: "10px 12px",
     backgroundColor: "#FFF",
-    border: "0.5px solid #DDDDCC",
+    border: `0.5px solid ${c.border}`,
     borderRadius: 8,
     cursor: "pointer",
     gap: 10,
   },
-  typeName: { fontSize: 13, fontWeight: 600, color: "#1A1A1A", flexShrink: 0 },
+  typeName: { fontSize: 15, fontWeight: 600, color: c.ink, flexShrink: 0 },
   itemCount: {
-    fontSize: 11,
-    color: "#666660",
+    fontSize: 13,
+    color: c.inkSoft,
     textAlign: "right",
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
-  divider: { height: "0.5px", backgroundColor: "#DDDDCC", margin: "12px 0" },
+  divider: { height: "0.5px", backgroundColor: c.border, margin: "12px 0" },
   filterRow: { display: "flex", gap: 6, marginBottom: 10, overflowX: "auto" },
   filterBtn: {
     border: "0.5px solid",
     borderRadius: 20,
     padding: "5px 12px",
-    fontSize: 12,
+    fontSize: 14,
     cursor: "pointer",
     whiteSpace: "nowrap",
-    fontFamily: "sans-serif",
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
   },
   prodList: { display: "flex", flexDirection: "column", gap: 6 },
   prodRow: {
@@ -398,13 +401,13 @@ const s = {
     alignItems: "center",
     padding: "10px 12px",
     backgroundColor: "#FFF",
-    border: "0.5px solid #DDDDCC",
+    border: `0.5px solid ${c.border}`,
     borderRadius: 8,
     cursor: "pointer",
   },
-  prodName: { fontSize: 13, fontWeight: 500, color: "#1A1A1A" },
+  prodName: { fontSize: 15, fontWeight: 500, color: c.ink },
   itemCountPill: {
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: 500,
     padding: "2px 8px",
     borderRadius: 20,
@@ -432,74 +435,74 @@ const s = {
     justifyContent: "space-between",
     padding: "16px 16px 0",
   },
-  modalTitle: { fontSize: 16, fontWeight: 600, color: "#1A1A1A", margin: 0 },
+  modalTitle: { fontSize: 18, fontWeight: 600, color: c.ink, margin: 0 },
   closeBtn: {
     background: "none",
     border: "none",
-    fontSize: 16,
+    fontSize: 18,
     cursor: "pointer",
-    color: "#666660",
+    color: c.inkSoft,
   },
   formBody: { padding: 16 },
-  helperTxt: { fontSize: 12, color: "#888880", margin: "0 0 12px" },
+  helperTxt: { fontSize: 14, color: c.inkFaint, margin: "0 0 12px" },
   rowList: { display: "flex", flexDirection: "column", gap: 8, marginBottom: 4 },
   recipeRow: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
     padding: "8px 10px",
-    backgroundColor: "#F1EFE8",
+    backgroundColor: c.bgMuted,
     borderRadius: 8,
   },
   recipeInfo: { flex: 1 },
-  recipeName: { fontSize: 13, fontWeight: 500, color: "#1A1A1A", margin: "0 0 4px" },
+  recipeName: { fontSize: 15, fontWeight: 500, color: c.ink, margin: "0 0 4px" },
   recipeMeta: { display: "flex", alignItems: "center", gap: 8 },
   tag: {
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: 600,
     padding: "2px 7px",
     borderRadius: 4,
     textTransform: "uppercase",
     letterSpacing: "0.03em",
   },
-  qtyTxt: { fontSize: 12, color: "#666660" },
+  qtyTxt: { fontSize: 14, color: c.inkSoft },
   removeBtn: {
     background: "none",
     border: "none",
     cursor: "pointer",
-    fontSize: 13,
+    fontSize: 15,
     padding: "4px 6px",
   },
-  label: { fontSize: 12, fontWeight: 500, color: "#444441", margin: "0 0 4px" },
+  label: { fontSize: 14, fontWeight: 500, color: c.inkSoft, margin: "0 0 4px" },
   select: {
     width: "100%",
-    border: "0.5px solid #B0AFA5",
+    border: `0.5px solid ${c.inkFaint}`,
     borderRadius: 8,
     padding: "10px 12px",
-    fontSize: 14,
-    color: "#1A1A1A",
-    fontFamily: "sans-serif",
-    backgroundColor: "#FAFAF8",
+    fontSize: 16,
+    color: c.ink,
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
+    backgroundColor: c.bg,
     marginBottom: 12,
     boxSizing: "border-box",
   },
   input: {
     width: "100%",
-    border: "0.5px solid #B0AFA5",
+    border: `0.5px solid ${c.inkFaint}`,
     borderRadius: 8,
     padding: "10px 12px",
-    fontSize: 14,
-    color: "#1A1A1A",
-    fontFamily: "sans-serif",
+    fontSize: 16,
+    color: c.ink,
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
     outline: "none",
-    backgroundColor: "#FAFAF8",
+    backgroundColor: c.bg,
     marginBottom: 12,
     boxSizing: "border-box",
   },
   error: {
-    fontSize: 12,
-    color: "#A32D2D",
-    backgroundColor: "#FCEBEB",
+    fontSize: 14,
+    color: c.danger,
+    backgroundColor: c.dangerSoft,
     padding: "8px 12px",
     borderRadius: 6,
     marginBottom: 12,
@@ -507,13 +510,13 @@ const s = {
   btnPrimary: {
     width: "100%",
     padding: 12,
-    backgroundColor: "#185FA5",
-    color: "#E6F1FB",
+    backgroundColor: c.accent,
+    color: "#FFFFFF",
     border: "none",
     borderRadius: 8,
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: 600,
-    fontFamily: "sans-serif",
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
     marginBottom: 8,
     cursor: "pointer",
   },
@@ -521,11 +524,11 @@ const s = {
     width: "100%",
     padding: 10,
     backgroundColor: "#FFF",
-    color: "#1A1A1A",
-    border: "0.5px solid #DDDDCC",
+    color: c.ink,
+    border: `0.5px solid ${c.border}`,
     borderRadius: 8,
-    fontSize: 13,
-    fontFamily: "sans-serif",
+    fontSize: 15,
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
     cursor: "pointer",
   },
 };

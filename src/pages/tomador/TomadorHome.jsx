@@ -4,29 +4,53 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../../context/useAuth";
 import { supabase } from "../../lib/supabase";
 import { useNavigate } from "react-router-dom";
+import { theme } from "../../theme";
+
+const c = theme.color;
 
 const STATUS_COLOR = {
   libre: {
-    bg: "#FFFFFF",
-    border: "#DDDDCC",
-    dot: "#3B6D11",
+    bg: c.surface,
+    border: c.border,
+    dot: c.success,
     label: "Libre",
-    labelColor: "#3B6D11",
+    labelColor: c.success,
   },
   ocupada: {
-    bg: "#FAEEDA",
-    border: "#EF9F27",
-    dot: "#854F0B",
+    bg: c.warnSoft,
+    border: "#EAD39A",
+    dot: c.warn,
     label: "Ocupada",
-    labelColor: "#854F0B",
+    labelColor: c.warn,
   },
 };
 
+// "abierto"/"listo" son avance normal del pedido (verde); "en_preparacion"
+// es el unico estado que requiere espera (ambar); "entregado" es el unico
+// que de verdad necesita accion del tomador (cerrar la cuenta), por eso
+// usa el color de info, distinto del resto.
 const OTHER_STATUS_COLOR = {
-  abierto: { bg: "#EAF3DE", color: "#3B6D11", label: "abierto" },
-  en_preparacion: { bg: "#FAEEDA", color: "#854F0B", label: "preparando" },
-  listo: { bg: "#EAF3DE", color: "#3B6D11", label: "listo" },
-  entregado: { bg: "#E6F1FB", color: "#185FA5", label: "entregado · falta cerrar" },
+  abierto: { bg: c.successSoft, color: c.success, label: "abierto" },
+  en_preparacion: { bg: c.warnSoft, color: c.warn, label: "preparando" },
+  listo: { bg: c.successSoft, color: c.success, label: "listo" },
+  entregado: { bg: c.infoSoft, color: c.info, label: "entregado · falta cerrar" },
+};
+
+const ORDER_ICON = {
+  para_llevar: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 10l8-6 8 6" />
+      <path d="M6 10v9a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-9" />
+    </svg>
+  ),
+  domicilio: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 7h13l5 5v5a1 1 0 0 1-1 1h-1" />
+      <path d="M3 7v9a1 1 0 0 0 1 1h1" />
+      <circle cx="7.5" cy="17.5" r="1.8" />
+      <circle cx="17.5" cy="17.5" r="1.8" />
+    </svg>
+  ),
 };
 
 export default function TomadorHome() {
@@ -122,11 +146,11 @@ export default function TomadorHome() {
         {/* Leyenda */}
         <div style={s.legend}>
           <div style={s.legendItem}>
-            <div style={{ ...s.dot, backgroundColor: "#3B6D11" }} />
+            <div style={{ ...s.dot, backgroundColor: c.success }} />
             <span>Libre</span>
           </div>
           <div style={s.legendItem}>
-            <div style={{ ...s.dot, backgroundColor: "#854F0B" }} />
+            <div style={{ ...s.dot, backgroundColor: c.warn }} />
             <span>Ocupada</span>
           </div>
         </div>
@@ -135,15 +159,15 @@ export default function TomadorHome() {
         <div style={s.grid}>
           {tables.map((table) => {
             const st = tableStatus(table.id);
-            const c = STATUS_COLOR[st];
+            const info = STATUS_COLOR[st];
             const count = tableOrderCount(table.id);
             return (
               <div
                 key={table.id}
                 style={{
                   ...s.card,
-                  backgroundColor: c.bg,
-                  borderColor: c.border,
+                  backgroundColor: info.bg,
+                  borderColor: info.border,
                 }}
                 onClick={() => {
                   const st = tableStatus(table.id);
@@ -161,8 +185,8 @@ export default function TomadorHome() {
               >
                 <p style={s.cardName}>{table.name}</p>
                 <div style={s.cardStatus}>
-                  <div style={{ ...s.dot, backgroundColor: c.dot }} />
-                  <span style={{ color: c.labelColor, fontSize: 12 }}>
+                  <div style={{ ...s.dot, backgroundColor: info.dot }} />
+                  <span style={{ color: info.labelColor, fontSize: 14, fontWeight: 600 }}>
                     {st === "libre"
                       ? "Libre"
                       : `${count} pedido${count !== 1 ? "s" : ""}`}
@@ -179,53 +203,59 @@ export default function TomadorHome() {
             <div style={s.divider} />
             <p style={s.sectionLabel}>Para llevar y domicilios activos</p>
             <div style={s.otherList}>
-              {otherOrders.map((order) => (
-                <div
-                  key={order.id}
-                  style={s.otherCard}
-                  onClick={() => navigate(`/tomador/pedido/${order.id}`)}
-                >
-                  <div>
-                    <p style={s.otherTitle}>
-                      {order.type === "para_llevar"
-                        ? "Para llevar"
-                        : "Domicilio"}{" "}
-                      #{order.id.slice(-4).toUpperCase()}
-                      {order.prepaid && (
-                        <span style={s.prepaidBadge}>
-                          ${" "}
-                          {order.payment_method === "efectivo"
-                            ? "Efectivo"
-                            : order.payment_method === "mixto"
-                              ? "Mixto"
-                              : "Transferencia"}
-                        </span>
-                      )}
-                    </p>
-                    {order.note && (
-                      <p
+              {otherOrders.map((order) => {
+                const statusInfo =
+                  OTHER_STATUS_COLOR[order.status] ?? OTHER_STATUS_COLOR.abierto;
+                return (
+                  <div
+                    key={order.id}
+                    style={s.otherCard}
+                    onClick={() => navigate(`/tomador/pedido/${order.id}`)}
+                  >
+                    <div style={s.otherLeft}>
+                      <div
                         style={{
-                          ...s.otherMeta,
-                          color: "#1A1A1A",
-                          fontWeight: 500,
+                          ...s.otherIcon,
+                          backgroundColor:
+                            order.type === "domicilio" ? c.domicilioSoft : c.accentSoft,
+                          color: order.type === "domicilio" ? c.domicilio : c.accent,
                         }}
                       >
-                        {order.note}
-                      </p>
-                    )}
-                    <p style={s.otherMeta}>{order.status}</p>
+                        {ORDER_ICON[order.type]}
+                      </div>
+                      <div>
+                        <p style={s.otherTitle}>
+                          {order.type === "para_llevar"
+                            ? "Para llevar"
+                            : "Domicilio"}{" "}
+                          #{order.id.slice(-4).toUpperCase()}
+                          {order.prepaid && (
+                            <span style={s.prepaidBadge}>
+                              {order.payment_method === "efectivo"
+                                ? "✓ Efectivo"
+                                : order.payment_method === "mixto"
+                                  ? "✓ Mixto"
+                                  : "✓ Transferencia"}
+                            </span>
+                          )}
+                        </p>
+                        {order.note && (
+                          <p style={s.otherNoteTxt}>{order.note}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div
+                      style={{
+                        ...s.pill,
+                        backgroundColor: statusInfo.bg,
+                        color: statusInfo.color,
+                      }}
+                    >
+                      {statusInfo.label}
+                    </div>
                   </div>
-                  <div
-                    style={{
-                      ...s.pill,
-                      backgroundColor: OTHER_STATUS_COLOR[order.status]?.bg ?? "#EAF3DE",
-                      color: OTHER_STATUS_COLOR[order.status]?.color ?? "#3B6D11",
-                    }}
-                  >
-                    {OTHER_STATUS_COLOR[order.status]?.label ?? order.status}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </>
         )}
@@ -237,8 +267,8 @@ export default function TomadorHome() {
 const s = {
   page: {
     minHeight: "100vh",
-    backgroundColor: "#FAFAF8",
-    fontFamily: "sans-serif",
+    backgroundColor: c.bg,
+    fontFamily: theme.font,
   },
   loadWrap: {
     display: "flex",
@@ -246,109 +276,127 @@ const s = {
     justifyContent: "center",
     height: "100vh",
   },
-  loadTxt: { fontSize: 14, color: "#666660" },
+  loadTxt: { fontSize: 15, color: c.inkSoft },
   topbar: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    padding: "12px 16px",
-    backgroundColor: "#FFF",
-    borderBottom: "0.5px solid #DDDDCC",
+    padding: "14px 18px",
+    backgroundColor: c.surface,
+    borderBottom: `1px solid ${c.border}`,
   },
-  title: { fontSize: 18, fontWeight: 600, color: "#1A1A1A", margin: "0 0 2px" },
-  sub: { fontSize: 11, color: "#666660", margin: 0 },
+  title: { fontSize: 21, fontWeight: 800, color: c.ink, margin: "0 0 2px", letterSpacing: "-0.01em" },
+  sub: { fontSize: 13, color: c.inkSoft, margin: 0 },
   topRight: { display: "flex", gap: 8, alignItems: "center" },
   newBtn: {
-    fontSize: 12,
-    fontWeight: 500,
-    color: "#185FA5",
-    backgroundColor: "#E6F1FB",
-    border: "0.5px solid #B5D4F4",
+    fontSize: 13,
+    fontWeight: 700,
+    color: "#fff",
+    backgroundColor: c.accent,
+    border: "none",
     borderRadius: 20,
-    padding: "5px 12px",
+    padding: "9px 16px",
     cursor: "pointer",
+    fontFamily: theme.font,
   },
   logoutBtn: {
-    fontSize: 12,
-    color: "#666660",
+    fontSize: 13,
+    fontWeight: 500,
+    color: c.inkSoft,
     background: "none",
-    border: "0.5px solid #DDDDCC",
-    borderRadius: 6,
-    padding: "5px 10px",
+    border: `1px solid ${c.border}`,
+    borderRadius: 8,
+    padding: "9px 12px",
     cursor: "pointer",
+    fontFamily: theme.font,
   },
-  body: { padding: 16 },
-  legend: { display: "flex", gap: 16, marginBottom: 12 },
+  body: { padding: 18 },
+  legend: { display: "flex", gap: 16, marginBottom: 14 },
   legendItem: {
     display: "flex",
     alignItems: "center",
     gap: 6,
-    fontSize: 12,
-    color: "#666660",
+    fontSize: 13,
+    color: c.inkSoft,
   },
-  dot: { width: 8, height: 8, borderRadius: "50%" },
+  dot: { width: 9, height: 9, borderRadius: "50%" },
   grid: {
     display: "grid",
     gridTemplateColumns: "repeat(2, 1fr)",
-    gap: 10,
-    marginBottom: 16,
+    gap: 12,
+    marginBottom: 18,
   },
   card: {
-    borderRadius: 10,
-    border: "0.5px solid",
-    padding: "14px 12px",
+    borderRadius: 14,
+    border: "1px solid",
+    padding: "16px 14px",
     cursor: "pointer",
+    boxShadow: theme.shadow,
     transition: "opacity 0.15s",
   },
   cardName: {
-    fontSize: 15,
-    fontWeight: 600,
-    color: "#1A1A1A",
-    margin: "0 0 6px",
+    fontSize: 17,
+    fontWeight: 700,
+    color: c.ink,
+    margin: "0 0 8px",
   },
-  cardStatus: { display: "flex", alignItems: "center", gap: 6 },
+  cardStatus: { display: "flex", alignItems: "center", gap: 7 },
   divider: {
-    height: "0.5px",
-    backgroundColor: "#DDDDCC",
-    margin: "4px 0 12px",
+    height: "1px",
+    backgroundColor: c.border,
+    margin: "6px 0 14px",
   },
   sectionLabel: {
-    fontSize: 11,
-    fontWeight: 500,
-    color: "#666660",
-    marginBottom: 8,
+    fontSize: 12,
+    fontWeight: 700,
+    color: c.inkSoft,
+    textTransform: "uppercase",
+    letterSpacing: "0.03em",
+    marginBottom: 10,
   },
-  otherList: { display: "flex", flexDirection: "column", gap: 8 },
+  otherList: { display: "flex", flexDirection: "column", gap: 9 },
   otherCard: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    padding: "10px 12px",
-    backgroundColor: "#FFF",
-    border: "0.5px solid #DDDDCC",
-    borderRadius: 8,
+    padding: "13px 14px",
+    backgroundColor: c.surface,
+    border: `1px solid ${c.border}`,
+    borderRadius: 12,
+    boxShadow: theme.shadow,
     cursor: "pointer",
   },
+  otherLeft: { display: "flex", alignItems: "center", gap: 11 },
+  otherIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
   otherTitle: {
-    fontSize: 13,
-    fontWeight: 500,
-    color: "#1A1A1A",
+    fontSize: 15,
+    fontWeight: 600,
+    color: c.ink,
     margin: "0 0 2px",
   },
-  otherMeta: { fontSize: 11, color: "#666660", margin: 0 },
+  otherNoteTxt: { fontSize: 13, color: c.ink, margin: 0, fontWeight: 500 },
   prepaidBadge: {
-    fontSize: 10,
-    fontWeight: 600,
-    color: "#3B6D11",
-    backgroundColor: "#EAF3DE",
-    padding: "1px 6px",
+    fontSize: 11,
+    fontWeight: 700,
+    color: c.success,
+    backgroundColor: c.successSoft,
+    padding: "2px 8px",
     borderRadius: 20,
     marginLeft: 6,
   },
   pill: {
-    fontSize: 11,
-    fontWeight: 500,
-    padding: "3px 10px",
+    fontSize: 12,
+    fontWeight: 600,
+    padding: "4px 11px",
     borderRadius: 20,
+    flexShrink: 0,
   },
 };

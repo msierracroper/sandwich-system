@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../context/useAuth";
+import { theme } from "../../theme";
+
+const c = theme.color;
 
 function timeAgo(dateStr) {
   const diff = Math.floor((Date.now() - new Date(dateStr)) / 1000);
@@ -13,6 +16,32 @@ function timeAgo(dateStr) {
 
 function formatPrice(n) {
   return "$" + (n ?? 0).toLocaleString("es-CO");
+}
+
+function CopyIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="9" y="9" width="12" height="12" rx="2" />
+      <path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1" />
+    </svg>
+  );
+}
+
+function PhoneIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z" />
+    </svg>
+  );
+}
+
+function CashIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="6" width="20" height="12" rx="2" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
 }
 
 function DeliveryCard({ order, onUpdate }) {
@@ -54,7 +83,7 @@ function DeliveryCard({ order, onUpdate }) {
         <div style={s.addressBox}>
           <span style={s.addressTxt}>{order.address}</span>
           <button style={s.copyBtn} onClick={copyAddress}>
-            {copied ? "Copiado ✓" : "Copiar"}
+            {copied ? "Copiado ✓" : <><CopyIcon /> Copiar</>}
           </button>
         </div>
       )}
@@ -66,7 +95,7 @@ function DeliveryCard({ order, onUpdate }) {
           )}
           {order.customer_phone && (
             <a style={s.phoneLink} href={`tel:${order.customer_phone}`}>
-              📞 {order.customer_phone}
+              <PhoneIcon /> {order.customer_phone}
             </a>
           )}
         </div>
@@ -77,14 +106,16 @@ function DeliveryCard({ order, onUpdate }) {
           style={{
             ...s.paymentBadge,
             backgroundColor:
-              order.payment_method === "efectivo" ? "#FAEEDA" : "#EAF3DE",
+              order.payment_method === "efectivo" ? c.warnSoft : c.successSoft,
             color:
-              order.payment_method === "efectivo" ? "#854F0B" : "#3B6D11",
+              order.payment_method === "efectivo" ? c.warn : c.success,
           }}
         >
-          {order.payment_method === "efectivo"
-            ? "💰 Cobrar efectivo"
-            : "✓ Ya pagado (transferencia)"}
+          {order.payment_method === "efectivo" ? (
+            <><CashIcon /> Cobrar efectivo</>
+          ) : (
+            "✓ Ya pagado (transferencia)"
+          )}
         </div>
       )}
 
@@ -218,8 +249,8 @@ export default function DomiciliarioHome() {
 const s = {
   page: {
     minHeight: "100vh",
-    backgroundColor: "#FAFAF8",
-    fontFamily: "sans-serif",
+    backgroundColor: c.bg,
+    fontFamily: theme.font,
   },
   loadWrap: {
     display: "flex",
@@ -227,152 +258,165 @@ const s = {
     justifyContent: "center",
     height: "100vh",
   },
-  loadTxt: { fontSize: 14, color: "#666660" },
+  loadTxt: { fontSize: 15, color: c.inkSoft },
   topbar: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    padding: "12px 16px",
-    backgroundColor: "#FFF",
-    borderBottom: "0.5px solid #DDDDCC",
+    padding: "14px 18px",
+    backgroundColor: c.surface,
+    borderBottom: `1px solid ${c.border}`,
   },
-  title: { fontSize: 16, fontWeight: 600, color: "#1A1A1A", margin: "0 0 2px" },
+  title: { fontSize: 18, fontWeight: 700, color: c.ink, margin: "0 0 2px" },
   sub: {
-    fontSize: 11,
-    color: "#666660",
+    fontSize: 13,
+    color: c.inkSoft,
     margin: 0,
     textTransform: "capitalize",
   },
   topRight: { display: "flex", alignItems: "center", gap: 10 },
   statPill: {
-    fontSize: 12,
-    fontWeight: 500,
-    padding: "4px 12px",
+    fontSize: 13,
+    fontWeight: 700,
+    padding: "6px 13px",
     borderRadius: 20,
-    backgroundColor: "#EAF3DE",
-    color: "#3B6D11",
+    backgroundColor: c.successSoft,
+    color: c.success,
   },
   logoutBtn: {
-    fontSize: 12,
-    color: "#666660",
+    fontSize: 13,
+    color: c.inkSoft,
     background: "none",
-    border: "0.5px solid #DDDDCC",
-    borderRadius: 6,
-    padding: "5px 10px",
+    border: `1px solid ${c.border}`,
+    borderRadius: 8,
+    padding: "7px 13px",
     cursor: "pointer",
+    fontFamily: theme.font,
   },
   ticketList: {
-    padding: 12,
+    padding: 14,
     display: "flex",
     flexDirection: "column",
-    gap: 10,
+    gap: 12,
   },
   ticket: {
-    backgroundColor: "#FFF",
-    borderRadius: 8,
-    border: "0.5px solid #DDDDCC",
-    padding: "10px 12px",
+    backgroundColor: c.surface,
+    borderRadius: 14,
+    border: `1px solid ${c.border}`,
+    padding: "14px 16px",
+    boxShadow: theme.shadow,
   },
-  ticketTop: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 },
-  ticketId: { fontSize: 12, fontWeight: 600, color: "#1A1A1A" },
-  ticketTime: { fontSize: 12, color: "#888880", marginLeft: "auto" },
+  ticketTop: { display: "flex", alignItems: "center", gap: 8, marginBottom: 10 },
+  ticketId: { fontSize: 15, fontWeight: 700, color: c.ink },
+  ticketTime: { fontSize: 13, color: c.inkFaint, marginLeft: "auto" },
   addressBox: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: 8,
-    backgroundColor: "#E6F1FB",
-    borderRadius: 6,
-    padding: "8px 10px",
-    marginBottom: 8,
+    gap: 10,
+    backgroundColor: c.infoSoft,
+    borderRadius: 9,
+    padding: "10px 12px",
+    marginBottom: 10,
   },
-  addressTxt: { fontSize: 13, fontWeight: 500, color: "#185FA5" },
+  addressTxt: { fontSize: 15, fontWeight: 600, color: c.info },
   copyBtn: {
-    fontSize: 11,
-    fontWeight: 500,
-    color: "#185FA5",
-    backgroundColor: "#FFF",
-    border: "0.5px solid #B5D4F4",
+    display: "flex",
+    alignItems: "center",
+    gap: 5,
+    fontSize: 13,
+    fontWeight: 700,
+    color: c.info,
+    backgroundColor: c.surface,
+    border: `1px solid ${c.infoBorder}`,
     borderRadius: 20,
-    padding: "4px 10px",
+    padding: "7px 13px",
     cursor: "pointer",
     whiteSpace: "nowrap",
     flexShrink: 0,
+    fontFamily: theme.font,
   },
   customerRow: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 8,
-    marginBottom: 8,
+    marginBottom: 10,
   },
-  customerName: { fontSize: 13, fontWeight: 500, color: "#1A1A1A" },
+  customerName: { fontSize: 15, fontWeight: 600, color: c.ink },
   phoneLink: {
-    fontSize: 13,
-    fontWeight: 500,
-    color: "#185FA5",
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    fontSize: 15,
+    fontWeight: 600,
+    color: c.accent,
     textDecoration: "none",
   },
   paymentBadge: {
-    fontSize: 12,
-    fontWeight: 600,
-    padding: "6px 10px",
-    borderRadius: 6,
-    marginBottom: 8,
+    display: "flex",
+    alignItems: "center",
+    gap: 7,
+    fontSize: 14,
+    fontWeight: 700,
+    padding: "8px 12px",
+    borderRadius: 8,
+    marginBottom: 10,
   },
   ticketItems: {
     display: "flex",
     flexDirection: "column",
-    gap: 6,
-    marginBottom: 8,
+    gap: 7,
+    marginBottom: 10,
   },
-  ticketItem: { display: "flex", alignItems: "center", gap: 8 },
+  ticketItem: { display: "flex", alignItems: "center", gap: 9 },
   qtyBadge: {
-    backgroundColor: "#F1EFE8",
-    border: "0.5px solid #DDDDCC",
-    borderRadius: 4,
-    padding: "1px 6px",
-    fontSize: 13,
+    backgroundColor: c.bgMuted,
+    border: `1px solid ${c.border}`,
+    borderRadius: 5,
+    padding: "2px 7px",
+    fontSize: 14,
     fontWeight: 700,
-    color: "#242121",
+    color: c.ink,
     flexShrink: 0,
   },
-  itemName: { fontSize: 13, fontWeight: 500, color: "#1A1A1A", margin: 0 },
+  itemName: { fontSize: 15, fontWeight: 600, color: c.ink, margin: 0 },
   noteBox: {
-    fontSize: 12,
-    color: "#666660",
-    backgroundColor: "#F1EFE8",
-    borderRadius: 6,
-    padding: "6px 10px",
-    marginBottom: 8,
+    fontSize: 14,
+    color: c.inkSoft,
+    backgroundColor: c.bgMuted,
+    borderRadius: 8,
+    padding: "8px 12px",
+    marginBottom: 10,
     fontStyle: "italic",
   },
-  noteLabel: { fontWeight: 500, fontStyle: "normal" },
+  noteLabel: { fontWeight: 600, fontStyle: "normal" },
   totalRow: {
     display: "flex",
     justifyContent: "space-between",
-    fontSize: 14,
-    fontWeight: 600,
-    color: "#1A1A1A",
-    padding: "4px 0 8px",
+    fontSize: 17,
+    fontWeight: 700,
+    color: c.ink,
+    padding: "4px 0 10px",
   },
   ticketBtn: {
     width: "100%",
-    padding: "9px",
-    border: "0.5px solid #B5D4F4",
-    borderRadius: 6,
-    fontSize: 13,
-    fontWeight: 500,
-    fontFamily: "sans-serif",
-    backgroundColor: "#E6F1FB",
-    color: "#185FA5",
+    padding: "13px",
+    border: "none",
+    borderRadius: 10,
+    fontSize: 15,
+    fontWeight: 700,
+    fontFamily: theme.font,
+    backgroundColor: c.accent,
+    color: "#FFFFFF",
     cursor: "pointer",
+    minHeight: 48,
   },
   emptySlot: {
-    border: "1px dashed #DDDDCC",
-    borderRadius: 8,
-    padding: 24,
+    border: `1.5px dashed ${c.border}`,
+    borderRadius: 12,
+    padding: 28,
     textAlign: "center",
   },
-  emptyTxt: { fontSize: 14, color: "#888880", margin: 0 },
+  emptyTxt: { fontSize: 15, color: c.inkFaint, margin: 0 },
 };

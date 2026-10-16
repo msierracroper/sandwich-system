@@ -4,15 +4,21 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../context/useAuth";
+import { theme } from "../../theme";
 
+const c = theme.color;
+
+// Paleta para distinguir categorias de gastos a simple vista — colores
+// categoricos, no de estado, por eso usa teal/indigo ademas de los tonos
+// semanticos.
 const PALETTE = [
-  { color: "#185FA5", bg: "#E6F1FB" },
-  { color: "#0F6E56", bg: "#E1F5EE" },
-  { color: "#854F0B", bg: "#FAEEDA" },
-  { color: "#534AB7", bg: "#EEEDFE" },
-  { color: "#3B6D11", bg: "#EAF3DE" },
-  { color: "#A32D2D", bg: "#FCEBEB" },
-  { color: "#444441", bg: "#F1EFE8" },
+  { color: c.accent, bg: c.accentSoft },
+  { color: c.teal, bg: c.tealSoft },
+  { color: c.warn, bg: c.warnSoft },
+  { color: c.indigo, bg: c.indigoSoft },
+  { color: c.success, bg: c.successSoft },
+  { color: c.danger, bg: c.dangerSoft },
+  { color: c.inkSoft, bg: c.bgMuted },
 ];
 
 function paletteFor(color) {
@@ -107,7 +113,7 @@ export default function Gastos() {
 
   function categoryStyle(name) {
     const cat = categories.find((c) => c.name === name);
-    return cat ? paletteFor(cat.color) : { color: "#888880", bg: "#F1EFE8" };
+    return cat ? paletteFor(cat.color) : { color: c.inkFaint, bg: c.bgMuted };
   }
 
   function filtered() {
@@ -328,9 +334,9 @@ export default function Gastos() {
             key={val}
             style={{
               ...s.filterBtn,
-              backgroundColor: periodo === val ? "#E6F1FB" : "#FFF",
-              borderColor: periodo === val ? "#378ADD" : "#DDDDCC",
-              color: periodo === val ? "#185FA5" : "#666660",
+              backgroundColor: periodo === val ? c.accentSoft : "#FFF",
+              borderColor: periodo === val ? c.accent : c.border,
+              color: periodo === val ? c.accent : c.inkSoft,
               fontWeight: periodo === val ? 600 : 400,
             }}
             onClick={() => setPeriodo(val)}
@@ -383,9 +389,9 @@ export default function Gastos() {
               <button
                 style={{
                   ...s.filterBtn,
-                  backgroundColor: filterCat === "todos" ? "#F1EFE8" : "#FFF",
-                  borderColor: filterCat === "todos" ? "#B0AFA5" : "#DDDDCC",
-                  color: filterCat === "todos" ? "#444441" : "#888880",
+                  backgroundColor: filterCat === "todos" ? c.bgMuted : "#FFF",
+                  borderColor: filterCat === "todos" ? c.inkFaint : c.border,
+                  color: filterCat === "todos" ? c.inkSoft : c.inkFaint,
                 }}
                 onClick={() => setFilterCat("todos")}
               >
@@ -399,8 +405,8 @@ export default function Gastos() {
                     style={{
                       ...s.filterBtn,
                       backgroundColor: filterCat === name ? st.bg : "#FFF",
-                      borderColor: filterCat === name ? st.color : "#DDDDCC",
-                      color: filterCat === name ? st.color : "#888880",
+                      borderColor: filterCat === name ? st.color : c.border,
+                      color: filterCat === name ? st.color : c.inkFaint,
                     }}
                     onClick={() => setFilterCat(name)}
                   >
@@ -436,7 +442,7 @@ export default function Gastos() {
                             ✏️
                           </button>
                           <button
-                            style={{ ...s.iconBtn, color: "#A32D2D" }}
+                            style={{ ...s.iconBtn, color: c.danger }}
                             onClick={() => deleteExpense(e.id)}
                           >
                             🗑
@@ -475,7 +481,7 @@ export default function Gastos() {
                   }
                 />
                 <p style={s.label}>
-                  Descripción <span style={{ color: "#A32D2D" }}>*</span>
+                  Descripción <span style={{ color: c.danger }}>*</span>
                 </p>
                 <input
                   style={s.input}
@@ -485,7 +491,7 @@ export default function Gastos() {
                   }
                 />
                 <p style={s.label}>
-                  Monto (COP) <span style={{ color: "#A32D2D" }}>*</span>
+                  Monto (COP) <span style={{ color: c.danger }}>*</span>
                 </p>
                 <input
                   style={s.input}
@@ -602,7 +608,7 @@ export default function Gastos() {
                 />
 
                 <p style={s.label}>
-                  Monto (COP) <span style={{ color: "#A32D2D" }}>*</span>
+                  Monto (COP) <span style={{ color: c.danger }}>*</span>
                 </p>
                 <input
                   style={s.input}
@@ -665,7 +671,7 @@ export default function Gastos() {
                         {itemsForCategory(cat.id).length !== 1 ? "s" : ""}
                       </span>
                       <button
-                        style={{ ...s.iconBtn, color: "#A32D2D" }}
+                        style={{ ...s.iconBtn, color: c.danger }}
                         onClick={() => deleteCategory(cat)}
                       >
                         🗑
@@ -689,55 +695,55 @@ export default function Gastos() {
 }
 
 const s = {
-  page: { minHeight: "100vh", backgroundColor: "#FAFAF8", fontFamily: "sans-serif" },
-  topbar: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", backgroundColor: "#FFF", borderBottom: "0.5px solid #DDDDCC" },
+  page: { minHeight: "100vh", backgroundColor: c.bg, fontFamily: "'Plus Jakarta Sans', sans-serif" },
+  topbar: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", backgroundColor: "#FFF", borderBottom: `0.5px solid ${c.border}` },
   topLeft: { display: "flex", alignItems: "center", gap: 10 },
-  backBtn: { fontSize: 18, background: "none", border: "none", cursor: "pointer", color: "#666660", padding: "0 4px" },
-  title: { fontSize: 16, fontWeight: 600, color: "#1A1A1A", margin: "0 0 2px" },
-  sub: { fontSize: 11, color: "#666660", margin: 0 },
-  newBtn: { fontSize: 12, fontWeight: 500, color: "#185FA5", backgroundColor: "#E6F1FB", border: "0.5px solid #B5D4F4", borderRadius: 20, padding: "6px 14px", cursor: "pointer" },
-  filterRow: { display: "flex", gap: 6, padding: "10px 16px", backgroundColor: "#FFF", borderBottom: "0.5px solid #DDDDCC", overflowX: "auto" },
-  filterBtn: { border: "0.5px solid", borderRadius: 20, padding: "5px 12px", fontSize: 12, cursor: "pointer", whiteSpace: "nowrap", fontFamily: "sans-serif" },
+  backBtn: { fontSize: 20, background: "none", border: "none", cursor: "pointer", color: c.inkSoft, padding: "0 4px" },
+  title: { fontSize: 18, fontWeight: 600, color: c.ink, margin: "0 0 2px" },
+  sub: { fontSize: 13, color: c.inkSoft, margin: 0 },
+  newBtn: { fontSize: 14, fontWeight: 500, color: c.accent, backgroundColor: c.accentSoft, border: `0.5px solid ${c.accentBorder}`, borderRadius: 20, padding: "6px 14px", cursor: "pointer" },
+  filterRow: { display: "flex", gap: 6, padding: "10px 16px", backgroundColor: "#FFF", borderBottom: `0.5px solid ${c.border}`, overflowX: "auto" },
+  filterBtn: { border: "0.5px solid", borderRadius: 20, padding: "5px 12px", fontSize: 14, cursor: "pointer", whiteSpace: "nowrap", fontFamily: "'Plus Jakarta Sans', sans-serif" },
   body: { padding: 16 },
-  loadTxt: { fontSize: 13, color: "#888880", textAlign: "center", padding: 20 },
+  loadTxt: { fontSize: 15, color: c.inkFaint, textAlign: "center", padding: 20 },
   catGrid: { display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 },
-  catCard: { backgroundColor: "#FFF", border: "0.5px solid #DDDDCC", borderLeft: "3px solid", borderRadius: 8, padding: "8px 12px", display: "flex", justifyContent: "space-between", alignItems: "center" },
-  catLabel: { fontSize: 12, fontWeight: 500, margin: 0 },
-  catTotal: { fontSize: 14, fontWeight: 600, color: "#1A1A1A", margin: 0 },
-  totalCard: { backgroundColor: "#F1EFE8", borderRadius: 8, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 },
-  totalLabel: { fontSize: 13, fontWeight: 500, color: "#1A1A1A" },
-  totalVal: { fontSize: 18, fontWeight: 600, color: "#A32D2D" },
-  divider: { height: "0.5px", backgroundColor: "#DDDDCC", margin: "10px 0" },
+  catCard: { backgroundColor: "#FFF", border: `0.5px solid ${c.border}`, borderLeft: "3px solid", borderRadius: 8, padding: "8px 12px", display: "flex", justifyContent: "space-between", alignItems: "center" },
+  catLabel: { fontSize: 14, fontWeight: 500, margin: 0 },
+  catTotal: { fontSize: 16, fontWeight: 600, color: c.ink, margin: 0 },
+  totalCard: { backgroundColor: c.bgMuted, borderRadius: 8, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 },
+  totalLabel: { fontSize: 15, fontWeight: 500, color: c.ink },
+  totalVal: { fontSize: 20, fontWeight: 600, color: c.danger },
+  divider: { height: "0.5px", backgroundColor: c.border, margin: "10px 0" },
   expenseList: { display: "flex", flexDirection: "column", gap: 8 },
-  expenseRow: { display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", backgroundColor: "#FFF", border: "0.5px solid #DDDDCC", borderRadius: 8 },
+  expenseRow: { display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", backgroundColor: "#FFF", border: `0.5px solid ${c.border}`, borderRadius: 8 },
   catDot: { width: 8, height: 8, borderRadius: "50%", flexShrink: 0 },
   expenseInfo: { flex: 1 },
-  expenseName: { fontSize: 13, fontWeight: 500, color: "#1A1A1A", margin: "0 0 4px" },
+  expenseName: { fontSize: 15, fontWeight: 500, color: c.ink, margin: "0 0 4px" },
   expenseMeta: { display: "flex", alignItems: "center", gap: 6 },
-  catPill: { fontSize: 10, fontWeight: 500, padding: "2px 7px", borderRadius: 20 },
-  expenseDate: { fontSize: 10, color: "#888880" },
+  catPill: { fontSize: 12, fontWeight: 500, padding: "2px 7px", borderRadius: 20 },
+  expenseDate: { fontSize: 12, color: c.inkFaint },
   expenseRight: { display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 },
-  expenseAmount: { fontSize: 13, fontWeight: 600, color: "#1A1A1A", margin: 0 },
+  expenseAmount: { fontSize: 15, fontWeight: 600, color: c.ink, margin: 0 },
   expenseActions: { display: "flex", gap: 4 },
-  iconBtn: { background: "none", border: "none", cursor: "pointer", fontSize: 12, padding: "2px 4px" },
+  iconBtn: { background: "none", border: "none", cursor: "pointer", fontSize: 14, padding: "2px 4px" },
   overlay: { position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.3)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 100 },
   modal: { backgroundColor: "#FFF", borderRadius: "16px 16px 0 0", width: "100%", maxWidth: 480, maxHeight: "90vh", overflowY: "auto" },
   modalHeader: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 16px 0" },
-  modalTitle: { fontSize: 16, fontWeight: 600, color: "#1A1A1A", margin: 0 },
-  closeBtn: { background: "none", border: "none", fontSize: 16, cursor: "pointer", color: "#666660" },
+  modalTitle: { fontSize: 18, fontWeight: 600, color: c.ink, margin: 0 },
+  closeBtn: { background: "none", border: "none", fontSize: 18, cursor: "pointer", color: c.inkSoft },
   formBody: { padding: 16 },
-  label: { fontSize: 12, fontWeight: 500, color: "#444441", margin: "0 0 4px" },
-  input: { width: "100%", border: "0.5px solid #B0AFA5", borderRadius: 8, padding: "10px 12px", fontSize: 14, color: "#1A1A1A", fontFamily: "sans-serif", outline: "none", backgroundColor: "#FAFAF8", marginBottom: 12, boxSizing: "border-box" },
-  select: { width: "100%", border: "0.5px solid #B0AFA5", borderRadius: 8, padding: "10px 12px", fontSize: 14, color: "#1A1A1A", fontFamily: "sans-serif", backgroundColor: "#FAFAF8", marginBottom: 12, boxSizing: "border-box" },
-  manageBtn: { fontSize: 12, fontWeight: 500, color: "#666660", backgroundColor: "#F1EFE8", border: "0.5px solid #DDDDCC", borderRadius: 20, padding: "6px 14px", cursor: "pointer", fontFamily: "sans-serif" },
+  label: { fontSize: 14, fontWeight: 500, color: c.inkSoft, margin: "0 0 4px" },
+  input: { width: "100%", border: `0.5px solid ${c.inkFaint}`, borderRadius: 8, padding: "10px 12px", fontSize: 16, color: c.ink, fontFamily: "'Plus Jakarta Sans', sans-serif", outline: "none", backgroundColor: c.bg, marginBottom: 12, boxSizing: "border-box" },
+  select: { width: "100%", border: `0.5px solid ${c.inkFaint}`, borderRadius: 8, padding: "10px 12px", fontSize: 16, color: c.ink, fontFamily: "'Plus Jakarta Sans', sans-serif", backgroundColor: c.bg, marginBottom: 12, boxSizing: "border-box" },
+  manageBtn: { fontSize: 14, fontWeight: 500, color: c.inkSoft, backgroundColor: c.bgMuted, border: `0.5px solid ${c.border}`, borderRadius: 20, padding: "6px 14px", cursor: "pointer", fontFamily: "'Plus Jakarta Sans', sans-serif" },
   manageList: { display: "flex", flexDirection: "column", gap: 6 },
-  manageRow: { display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", backgroundColor: "#F1EFE8", borderRadius: 8 },
-  manageName: { fontSize: 13, fontWeight: 500, color: "#1A1A1A", flex: 1 },
-  manageCount: { fontSize: 11, color: "#888880" },
+  manageRow: { display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", backgroundColor: c.bgMuted, borderRadius: 8 },
+  manageName: { fontSize: 15, fontWeight: 500, color: c.ink, flex: 1 },
+  manageCount: { fontSize: 13, color: c.inkFaint },
   inlineAdd: { display: "flex", gap: 6, marginBottom: 12 },
-  inlineInput: { flex: 1, border: "0.5px solid #B0AFA5", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "#1A1A1A", fontFamily: "sans-serif", outline: "none", backgroundColor: "#FAFAF8", boxSizing: "border-box" },
-  inlineBtn: { fontSize: 12, fontWeight: 500, color: "#185FA5", backgroundColor: "#E6F1FB", border: "0.5px solid #B5D4F4", borderRadius: 8, padding: "8px 12px", cursor: "pointer", whiteSpace: "nowrap" },
-  error: { fontSize: 12, color: "#A32D2D", backgroundColor: "#FCEBEB", padding: "8px 12px", borderRadius: 6, marginBottom: 12 },
-  btnPrimary: { width: "100%", padding: 12, backgroundColor: "#185FA5", color: "#E6F1FB", border: "none", borderRadius: 8, fontSize: 14, fontWeight: 600, fontFamily: "sans-serif", marginBottom: 8, cursor: "pointer" },
-  btnGhost: { width: "100%", padding: 10, backgroundColor: "#FFF", color: "#1A1A1A", border: "0.5px solid #DDDDCC", borderRadius: 8, fontSize: 13, fontFamily: "sans-serif", cursor: "pointer" },
+  inlineInput: { flex: 1, border: `0.5px solid ${c.inkFaint}`, borderRadius: 8, padding: "8px 10px", fontSize: 15, color: c.ink, fontFamily: "'Plus Jakarta Sans', sans-serif", outline: "none", backgroundColor: c.bg, boxSizing: "border-box" },
+  inlineBtn: { fontSize: 14, fontWeight: 500, color: c.accent, backgroundColor: c.accentSoft, border: `0.5px solid ${c.accentBorder}`, borderRadius: 8, padding: "8px 12px", cursor: "pointer", whiteSpace: "nowrap" },
+  error: { fontSize: 14, color: c.danger, backgroundColor: c.dangerSoft, padding: "8px 12px", borderRadius: 6, marginBottom: 12 },
+  btnPrimary: { width: "100%", padding: 12, backgroundColor: c.accent, color: "#FFFFFF", border: "none", borderRadius: 8, fontSize: 16, fontWeight: 600, fontFamily: "'Plus Jakarta Sans', sans-serif", marginBottom: 8, cursor: "pointer" },
+  btnGhost: { width: "100%", padding: 10, backgroundColor: "#FFF", color: c.ink, border: `0.5px solid ${c.border}`, borderRadius: 8, fontSize: 15, fontFamily: "'Plus Jakarta Sans', sans-serif", cursor: "pointer" },
 };

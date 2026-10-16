@@ -3,18 +3,21 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
+import { theme } from "../../theme";
+
+const c = theme.color;
 
 const STATUS_LABEL = {
-  abierto: { label: "Abierto", bg: "#E6F1FB", color: "#185FA5" },
-  en_preparacion: { label: "En preparacion", bg: "#FAEEDA", color: "#854F0B" },
-  listo: { label: "Listo", bg: "#EAF3DE", color: "#3B6D11" },
-  entregado: { label: "Entregado", bg: "#E6F1FB", color: "#185FA5" },
+  abierto: { label: "Abierto", bg: c.infoSoft, color: c.info },
+  en_preparacion: { label: "En preparacion", bg: c.warnSoft, color: c.warn },
+  listo: { label: "Listo", bg: c.successSoft, color: c.success },
+  entregado: { label: "Entregado", bg: c.infoSoft, color: c.info },
 };
 
 const PREP_LABEL = {
-  pendiente: { label: "Pendiente", color: "#888880" },
-  en_preparacion: { label: "Preparando", color: "#854F0B" },
-  listo: { label: "Listo", color: "#3B6D11" },
+  pendiente: { label: "Pendiente", color: c.inkFaint },
+  en_preparacion: { label: "Preparando", color: c.warn },
+  listo: { label: "Listo", color: c.success },
 };
 
 const CATEGORIAS = [
@@ -23,6 +26,34 @@ const CATEGORIAS = [
   { value: "granizado", label: "Granizados" },
   { value: "adicion", label: "Adiciones" },
 ];
+
+function EditIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />
+    </svg>
+  );
+}
+
+function SwapIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17 2l4 4-4 4" />
+      <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+      <path d="M7 22l-4-4 4-4" />
+      <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18 6L6 18M6 6l12 12" />
+    </svg>
+  );
+}
 
 export default function PedidoActivo() {
   const { id } = useParams();
@@ -551,12 +582,12 @@ export default function PedidoActivo() {
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           {canEdit && !editMode && order.type === "mesa" && (
             <button style={s.editBtn} onClick={openMesaChanger}>
-              🔁 Mesa
+              <SwapIcon /> Mesa
             </button>
           )}
           {canEdit && !editMode && (
             <button style={s.editBtn} onClick={openEdit}>
-              ✏️ Editar
+              <EditIcon /> Editar
             </button>
           )}
           <div
@@ -578,8 +609,9 @@ export default function PedidoActivo() {
             <button
               style={s.mesaChangerClose}
               onClick={() => setShowMesaChanger(false)}
+              aria-label="Cerrar"
             >
-              ✕
+              <CloseIcon />
             </button>
           </div>
           {freeTables.length === 0 ? (
@@ -606,11 +638,11 @@ export default function PedidoActivo() {
       )}
 
       <div style={s.steps}>
-        <div style={{ ...s.stepDot, backgroundColor: "#378ADD" }} />
-        <div style={{ ...s.stepLine, backgroundColor: "#378ADD" }} />
-        <div style={{ ...s.stepDot, backgroundColor: "#378ADD" }} />
-        <div style={{ ...s.stepLine, backgroundColor: "#DDDDCC" }} />
-        <div style={{ ...s.stepDot, backgroundColor: "#D3D1C7" }} />
+        <div style={{ ...s.stepDot, backgroundColor: c.accent }} />
+        <div style={{ ...s.stepLine, backgroundColor: c.accent }} />
+        <div style={{ ...s.stepDot, backgroundColor: c.accent }} />
+        <div style={{ ...s.stepLine, backgroundColor: c.border }} />
+        <div style={{ ...s.stepDot, backgroundColor: c.borderStrong }} />
       </div>
 
       <div style={s.body}>
@@ -653,7 +685,7 @@ export default function PedidoActivo() {
                       <span
                         style={{
                           ...s.qtyNum,
-                          color: qty === 0 ? "#A32D2D" : "#1A1A1A",
+                          color: qty === 0 ? c.danger : c.ink,
                         }}
                       >
                         {qty}
@@ -672,9 +704,9 @@ export default function PedidoActivo() {
                     </div>
                     <p
                       style={{
-                        fontSize: 13,
+                        fontSize: 15,
                         fontWeight: 500,
-                        color: "#1A1A1A",
+                        color: c.ink,
                         minWidth: 72,
                         textAlign: "right",
                       }}
@@ -710,13 +742,13 @@ export default function PedidoActivo() {
                     <div
                       style={{
                         ...s.itemRow,
-                        backgroundColor: "#EAF3DE",
+                        backgroundColor: c.successSoft,
                         borderRadius: 6,
                         padding: "8px 6px",
                       }}
                     >
                       <div style={s.itemLeft}>
-                        <p style={{ ...s.itemName, color: "#3B6D11" }}>
+                        <p style={{ ...s.itemName, color: c.success }}>
                           + {p.name}
                         </p>
                         <p style={s.itemNote}>
@@ -753,9 +785,9 @@ export default function PedidoActivo() {
                       </div>
                       <p
                         style={{
-                          fontSize: 13,
+                          fontSize: 15,
                           fontWeight: 500,
-                          color: "#3B6D11",
+                          color: c.success,
                           minWidth: 72,
                           textAlign: "right",
                         }}
@@ -798,10 +830,10 @@ export default function PedidoActivo() {
                       style={{
                         ...s.catTab,
                         backgroundColor:
-                          catFilter === cat.value ? "#E6F1FB" : "#FFF",
+                          catFilter === cat.value ? c.accentSoft : "#FFF",
                         borderColor:
-                          catFilter === cat.value ? "#378ADD" : "#DDDDCC",
-                        color: catFilter === cat.value ? "#185FA5" : "#666660",
+                          catFilter === cat.value ? c.accent : c.border,
+                        color: catFilter === cat.value ? c.accent : c.inkSoft,
                         fontWeight: catFilter === cat.value ? 600 : 400,
                       }}
                       onClick={() => setCatFilter(cat.value)}
@@ -893,11 +925,11 @@ export default function PedidoActivo() {
                         ...s.methodBtn,
                         flex: 1,
                         backgroundColor:
-                          editPaymentMethod === m ? "#E6F1FB" : "#FFF",
+                          editPaymentMethod === m ? c.accentSoft : "#FFF",
                         borderColor:
-                          editPaymentMethod === m ? "#378ADD" : "#DDDDCC",
+                          editPaymentMethod === m ? c.accent : c.border,
                         color:
-                          editPaymentMethod === m ? "#185FA5" : "#666660",
+                          editPaymentMethod === m ? c.accent : c.inkSoft,
                         fontWeight: editPaymentMethod === m ? 600 : 400,
                       }}
                       onClick={() => setEditPaymentMethod(m)}
@@ -975,13 +1007,13 @@ export default function PedidoActivo() {
                 <div
                   style={{
                     ...s.prepaidBox,
-                    backgroundColor: order.prepaid ? "#EAF3DE" : "#F1EFE8",
+                    backgroundColor: order.prepaid ? c.successSoft : c.bgMuted,
                   }}
                 >
                   {order.prepaid ? (
                     <div style={s.prepaidRow}>
                       <div>
-                        <p style={{ ...s.prepaidTitle, color: "#3B6D11" }}>
+                        <p style={{ ...s.prepaidTitle, color: c.success }}>
                           ✓ Ya pagado ·{" "}
                           {order.payment_method === "efectivo"
                             ? "Efectivo"
@@ -1010,10 +1042,10 @@ export default function PedidoActivo() {
                             style={{
                               ...s.methodBtn,
                               backgroundColor:
-                                method === m ? "#EAF3DE" : "#FFF",
+                                method === m ? c.successSoft : "#FFF",
                               borderColor:
-                                method === m ? "#3B6D11" : "#DDDDCC",
-                              color: method === m ? "#3B6D11" : "#666660",
+                                method === m ? c.success : c.border,
+                              color: method === m ? c.success : c.inkSoft,
                               fontWeight: method === m ? 600 : 400,
                             }}
                             onClick={() => setMethod(m)}
@@ -1048,16 +1080,16 @@ export default function PedidoActivo() {
                             <div
                               style={{
                                 ...s.vueltoBox,
-                                backgroundColor: "#FCEBEB",
+                                backgroundColor: c.dangerSoft,
                               }}
                             >
                               <span
-                                style={{ ...s.vueltoLabel, color: "#A32D2D" }}
+                                style={{ ...s.vueltoLabel, color: c.danger }}
                               >
                                 Falta
                               </span>
                               <span
-                                style={{ ...s.vueltoVal, color: "#A32D2D" }}
+                                style={{ ...s.vueltoVal, color: c.danger }}
                               >
                                 {formatPrice(Math.abs(vuelto()))}
                               </span>
@@ -1079,11 +1111,11 @@ export default function PedidoActivo() {
                             <div
                               style={{
                                 ...s.vueltoBox,
-                                backgroundColor: "#FCEBEB",
+                                backgroundColor: c.dangerSoft,
                               }}
                             >
                               <span
-                                style={{ ...s.vueltoLabel, color: "#A32D2D" }}
+                                style={{ ...s.vueltoLabel, color: c.danger }}
                               >
                                 El efectivo supera el total
                               </span>
@@ -1323,10 +1355,10 @@ export default function PedidoActivo() {
                                 style={{
                                   ...s.methodBtn,
                                   backgroundColor:
-                                    m === mm ? "#EAF3DE" : "#FFF",
+                                    m === mm ? c.successSoft : "#FFF",
                                   borderColor:
-                                    m === mm ? "#3B6D11" : "#DDDDCC",
-                                  color: m === mm ? "#3B6D11" : "#666660",
+                                    m === mm ? c.success : c.border,
+                                  color: m === mm ? c.success : c.inkSoft,
                                   fontWeight: m === mm ? 600 : 400,
                                 }}
                                 onClick={() =>
@@ -1373,13 +1405,13 @@ export default function PedidoActivo() {
                                   <div
                                     style={{
                                       ...s.vueltoBox,
-                                      backgroundColor: "#FCEBEB",
+                                      backgroundColor: c.dangerSoft,
                                     }}
                                   >
                                     <span
                                       style={{
                                         ...s.vueltoLabel,
-                                        color: "#A32D2D",
+                                        color: c.danger,
                                       }}
                                     >
                                       Falta
@@ -1387,7 +1419,7 @@ export default function PedidoActivo() {
                                     <span
                                       style={{
                                         ...s.vueltoVal,
-                                        color: "#A32D2D",
+                                        color: c.danger,
                                       }}
                                     >
                                       {formatPrice(Math.abs(subVuelto(label)))}
@@ -1415,13 +1447,13 @@ export default function PedidoActivo() {
                                 <div
                                   style={{
                                     ...s.vueltoBox,
-                                    backgroundColor: "#FCEBEB",
+                                    backgroundColor: c.dangerSoft,
                                   }}
                                 >
                                   <span
                                     style={{
                                       ...s.vueltoLabel,
-                                      color: "#A32D2D",
+                                      color: c.danger,
                                     }}
                                   >
                                     El efectivo supera el total de esta cuenta
@@ -1472,9 +1504,9 @@ export default function PedidoActivo() {
                           key={m}
                           style={{
                             ...s.methodBtn,
-                            backgroundColor: method === m ? "#EAF3DE" : "#FFF",
-                            borderColor: method === m ? "#3B6D11" : "#DDDDCC",
-                            color: method === m ? "#3B6D11" : "#666660",
+                            backgroundColor: method === m ? c.successSoft : "#FFF",
+                            borderColor: method === m ? c.success : c.border,
+                            color: method === m ? c.success : c.inkSoft,
                             fontWeight: method === m ? 600 : 400,
                           }}
                           onClick={() => setMethod(m)}
@@ -1507,12 +1539,12 @@ export default function PedidoActivo() {
                         )}
                         {cashReceived !== "" && vuelto() < 0 && (
                           <div
-                            style={{ ...s.vueltoBox, backgroundColor: "#FCEBEB" }}
+                            style={{ ...s.vueltoBox, backgroundColor: c.dangerSoft }}
                           >
-                            <span style={{ ...s.vueltoLabel, color: "#A32D2D" }}>
+                            <span style={{ ...s.vueltoLabel, color: c.danger }}>
                               Falta
                             </span>
-                            <span style={{ ...s.vueltoVal, color: "#A32D2D" }}>
+                            <span style={{ ...s.vueltoVal, color: c.danger }}>
                               {formatPrice(Math.abs(vuelto()))}
                             </span>
                           </div>
@@ -1531,9 +1563,9 @@ export default function PedidoActivo() {
                         />
                         {mixedCashNum() > order.total ? (
                           <div
-                            style={{ ...s.vueltoBox, backgroundColor: "#FCEBEB" }}
+                            style={{ ...s.vueltoBox, backgroundColor: c.dangerSoft }}
                           >
-                            <span style={{ ...s.vueltoLabel, color: "#A32D2D" }}>
+                            <span style={{ ...s.vueltoLabel, color: c.danger }}>
                               El efectivo supera el total
                             </span>
                           </div>
@@ -1578,8 +1610,8 @@ export default function PedidoActivo() {
 const s = {
   page: {
     minHeight: "100vh",
-    backgroundColor: "#FAFAF8",
-    fontFamily: "sans-serif",
+    backgroundColor: c.bg,
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
   },
   loadWrap: {
     display: "flex",
@@ -1587,45 +1619,49 @@ const s = {
     justifyContent: "center",
     height: "100vh",
   },
-  loadTxt: { fontSize: 14, color: "#666660" },
+  loadTxt: { fontSize: 16, color: c.inkSoft },
   topbar: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
     padding: "12px 16px",
     backgroundColor: "#FFF",
-    borderBottom: "0.5px solid #DDDDCC",
+    borderBottom: `0.5px solid ${c.border}`,
   },
   topLeft: { display: "flex", alignItems: "center", gap: 10 },
   backBtn: {
-    fontSize: 18,
+    fontSize: 20,
     background: "none",
     border: "none",
     cursor: "pointer",
-    color: "#666660",
+    color: c.inkSoft,
     padding: "0 4px",
   },
-  title: { fontSize: 14, fontWeight: 600, color: "#1A1A1A", margin: "0 0 2px" },
-  sub: { fontSize: 11, color: "#666660", margin: 0 },
+  title: { fontSize: 16, fontWeight: 600, color: c.ink, margin: "0 0 2px" },
+  sub: { fontSize: 13, color: c.inkSoft, margin: 0 },
   pill: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: 500,
     padding: "3px 10px",
     borderRadius: 20,
   },
   editBtn: {
-    fontSize: 12,
-    fontWeight: 500,
-    color: "#854F0B",
-    backgroundColor: "#FAEEDA",
-    border: "0.5px solid #FAC775",
+    display: "flex",
+    alignItems: "center",
+    gap: 5,
+    fontSize: 15,
+    fontWeight: 600,
+    color: c.warn,
+    backgroundColor: c.warnSoft,
+    border: `1px solid ${c.warnBorder}`,
     borderRadius: 20,
-    padding: "4px 10px",
+    padding: "7px 13px",
     cursor: "pointer",
+    fontFamily: theme.font,
   },
   mesaChangerBox: {
     backgroundColor: "#FFF",
-    borderBottom: "0.5px solid #DDDDCC",
+    borderBottom: `0.5px solid ${c.border}`,
     padding: 14,
   },
   mesaChangerHeader: {
@@ -1635,18 +1671,23 @@ const s = {
     marginBottom: 10,
   },
   mesaChangerTitle: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: 600,
-    color: "#1A1A1A",
+    color: c.ink,
     margin: 0,
   },
   mesaChangerClose: {
-    background: "none",
-    border: "none",
-    fontSize: 14,
-    color: "#666660",
+    width: 30,
+    height: 30,
+    background: c.surface,
+    border: `1px solid ${c.border}`,
+    borderRadius: 9,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    color: c.inkSoft,
     cursor: "pointer",
-    padding: "0 4px",
+    padding: 0,
   },
   mesaChangerGrid: {
     display: "grid",
@@ -1654,42 +1695,42 @@ const s = {
     gap: 8,
   },
   mesaChangerBtn: {
-    border: "0.5px solid #B5D4F4",
-    backgroundColor: "#E6F1FB",
-    color: "#185FA5",
+    border: `0.5px solid ${c.accentBorder}`,
+    backgroundColor: c.accentSoft,
+    color: c.accent,
     borderRadius: 8,
     padding: "10px 4px",
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: 500,
-    fontFamily: "sans-serif",
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
   },
-  emptyMesaTxt: { fontSize: 12, color: "#888880", margin: 0 },
+  emptyMesaTxt: { fontSize: 14, color: c.inkFaint, margin: 0 },
   steps: {
     display: "flex",
     alignItems: "center",
     padding: "8px 16px",
-    backgroundColor: "#F1EFE8",
-    borderBottom: "0.5px solid #DDDDCC",
+    backgroundColor: c.bgMuted,
+    borderBottom: `0.5px solid ${c.border}`,
   },
   stepDot: { width: 8, height: 8, borderRadius: "50%", flexShrink: 0 },
-  stepLine: { flex: 1, height: 1, backgroundColor: "#DDDDCC" },
+  stepLine: { flex: 1, height: 1, backgroundColor: c.border },
   body: { padding: 16 },
   editBox: {
     backgroundColor: "#FFF",
-    border: "1.5px solid #EF9F27",
+    border: `1.5px solid ${c.accent}`,
     borderRadius: 10,
     padding: "12px 14px",
     marginBottom: 10,
   },
   editTitle: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: 600,
-    color: "#854F0B",
+    color: c.warn,
     margin: "0 0 2px",
   },
-  editSub: { fontSize: 11, color: "#888880", margin: "0 0 12px" },
+  editSub: { fontSize: 13, color: c.inkFaint, margin: "0 0 12px" },
   resumenBox: {
-    backgroundColor: "#F1EFE8",
+    backgroundColor: c.bgMuted,
     borderRadius: 8,
     padding: "12px 14px",
     marginBottom: 10,
@@ -1699,76 +1740,80 @@ const s = {
     justifyContent: "space-between",
     alignItems: "center",
     padding: "8px 0",
-    borderBottom: "0.5px solid #DDDDCC",
+    borderBottom: `0.5px solid ${c.border}`,
   },
   itemLeft: { flex: 1 },
   itemName: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: 500,
-    color: "#1A1A1A",
+    color: c.ink,
     margin: "0 0 2px",
   },
   itemNote: {
-    fontSize: 12,
-    color: "#A32D2D",
+    fontSize: 14,
+    color: c.danger,
     margin: 0,
     fontStyle: "italic",
     fontWeight: 500,
   },
   subcuentaTag: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: 500,
-    color: "#185FA5",
+    color: c.accent,
   },
   noteInput: {
     width: "100%",
-    border: "0.5px solid #DDDDCC",
+    border: `0.5px solid ${c.border}`,
     borderRadius: 6,
     padding: "6px 10px",
-    fontSize: 11,
-    color: "#444441",
-    fontFamily: "sans-serif",
-    backgroundColor: "#FAFAF8",
+    fontSize: 13,
+    color: c.inkSoft,
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
+    backgroundColor: c.bg,
     marginTop: 6,
     marginBottom: 8,
     boxSizing: "border-box",
-    borderLeft: "2px solid #378ADD",
+    borderLeft: `2px solid ${c.accent}`,
   },
   itemRight: { textAlign: "right" },
   itemPrice: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: 500,
-    color: "#1A1A1A",
+    color: c.ink,
     margin: "0 0 2px",
   },
-  itemStatus: { fontSize: 10, margin: 0 },
-  qtyCtrl: { display: "flex", alignItems: "center", gap: 8, marginRight: 10 },
+  itemStatus: { fontSize: 12, margin: 0 },
+  qtyCtrl: { display: "flex", alignItems: "center", gap: 10, marginRight: 10 },
   qtyBtn: {
-    width: 26,
-    height: 26,
+    width: 38,
+    height: 38,
     borderRadius: "50%",
-    backgroundColor: "#F1EFE8",
-    border: "0.5px solid #DDDDCC",
-    fontSize: 16,
+    backgroundColor: c.bgMuted,
+    border: `1.5px solid ${c.border}`,
+    fontSize: 20,
+    fontWeight: 700,
+    color: c.ink,
     cursor: "pointer",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
+    fontFamily: theme.font,
+    padding: 0,
   },
-  qtyNum: { fontSize: 14, fontWeight: 500, minWidth: 16, textAlign: "center" },
-  divider: { height: "0.5px", backgroundColor: "#DDDDCC", margin: "10px 0" },
+  qtyNum: { fontSize: 19, fontWeight: 800, color: c.ink, minWidth: 24, textAlign: "center" },
+  divider: { height: "0.5px", backgroundColor: c.border, margin: "10px 0" },
   totalRow: {
     display: "flex",
     justifyContent: "space-between",
-    fontSize: 15,
+    fontSize: 17,
     fontWeight: 600,
-    color: "#1A1A1A",
+    color: c.ink,
     padding: "4px 0",
   },
   noteBox: {
-    fontSize: 12,
-    color: "#666660",
-    backgroundColor: "#F1EFE8",
+    fontSize: 14,
+    color: c.inkSoft,
+    backgroundColor: c.bgMuted,
     borderRadius: 6,
     padding: "8px 10px",
     marginBottom: 10,
@@ -1776,23 +1821,23 @@ const s = {
   },
   noteLabel: { fontWeight: 500, fontStyle: "normal" },
   closedBox: {
-    backgroundColor: "#EAF3DE",
+    backgroundColor: c.successSoft,
     borderRadius: 8,
     padding: "10px 14px",
     marginBottom: 10,
   },
   closedTxt: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: 500,
-    color: "#3B6D11",
+    color: c.success,
     margin: "0 0 2px",
     textTransform: "capitalize",
   },
-  closedSub: { fontSize: 12, color: "#3B6D11", margin: 0 },
+  closedSub: { fontSize: 14, color: c.success, margin: 0 },
   sectionLabel: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: 500,
-    color: "#666660",
+    color: c.inkSoft,
     marginBottom: 8,
   },
   prepaidBox: {
@@ -1807,30 +1852,30 @@ const s = {
     gap: 10,
     cursor: "pointer",
   },
-  prepaidTitle: { fontSize: 13, fontWeight: 500, margin: "0 0 2px" },
-  prepaidDesc: { fontSize: 11, color: "#888880", margin: 0 },
-  prepaidArrow: { fontSize: 18, color: "#888880" },
+  prepaidTitle: { fontSize: 15, fontWeight: 500, margin: "0 0 2px" },
+  prepaidDesc: { fontSize: 13, color: c.inkFaint, margin: 0 },
+  prepaidArrow: { fontSize: 20, color: c.inkFaint },
   prepaidUndoBtn: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: 500,
-    color: "#666660",
+    color: c.inkSoft,
     background: "#FFF",
-    border: "0.5px solid #DDDDCC",
+    border: `0.5px solid ${c.border}`,
     borderRadius: 20,
     padding: "5px 10px",
     cursor: "pointer",
-    fontFamily: "sans-serif",
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
     flexShrink: 0,
   },
   generalNoteTextarea: {
     width: "100%",
-    border: "0.5px solid #DDDDCC",
+    border: `0.5px solid ${c.border}`,
     borderRadius: 8,
     padding: "8px 12px",
-    fontSize: 12,
-    color: "#666660",
-    fontFamily: "sans-serif",
-    backgroundColor: "#F1EFE8",
+    fontSize: 14,
+    color: c.inkSoft,
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
+    backgroundColor: c.bgMuted,
     resize: "none",
     boxSizing: "border-box",
   },
@@ -1841,7 +1886,7 @@ const s = {
     marginBottom: 12,
   },
   subPayCard: {
-    border: "0.5px solid #DDDDCC",
+    border: `0.5px solid ${c.border}`,
     borderRadius: 8,
     padding: "10px 12px",
     marginBottom: 10,
@@ -1850,41 +1895,41 @@ const s = {
   subPayHeader: {
     display: "flex",
     justifyContent: "space-between",
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: 600,
-    color: "#1A1A1A",
+    color: c.ink,
     marginBottom: 8,
   },
-  subPayLabel: { color: "#1A1A1A" },
-  subPayTotal: { color: "#1A1A1A" },
+  subPayLabel: { color: c.ink },
+  subPayTotal: { color: c.ink },
   subPaidBox: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
     padding: "8px 12px",
     marginBottom: 8,
-    backgroundColor: "#EAF3DE",
+    backgroundColor: c.successSoft,
     borderRadius: 8,
-    fontSize: 13,
-    color: "#3B6D11",
+    fontSize: 15,
+    color: c.success,
   },
   subPaidTag: { fontWeight: 600, textTransform: "capitalize" },
   methodBtn: {
     border: "0.5px solid",
     borderRadius: 8,
     padding: "12px 8px",
-    fontSize: 12,
+    fontSize: 14,
     cursor: "pointer",
-    fontFamily: "sans-serif",
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
   },
   cashInput: {
     width: "100%",
-    border: "0.5px solid #DDDDCC",
+    border: `0.5px solid ${c.border}`,
     borderRadius: 8,
     padding: "10px 12px",
-    fontSize: 14,
-    color: "#1A1A1A",
-    fontFamily: "sans-serif",
+    fontSize: 16,
+    color: c.ink,
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
     backgroundColor: "#FFF",
     marginBottom: 8,
     boxSizing: "border-box",
@@ -1893,51 +1938,51 @@ const s = {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: "#EAF3DE",
+    backgroundColor: c.successSoft,
     borderRadius: 8,
     padding: "10px 14px",
     marginBottom: 12,
   },
-  vueltoLabel: { fontSize: 13, fontWeight: 500, color: "#3B6D11" },
-  vueltoVal: { fontSize: 16, fontWeight: 600, color: "#3B6D11" },
+  vueltoLabel: { fontSize: 15, fontWeight: 500, color: c.success },
+  vueltoVal: { fontSize: 18, fontWeight: 600, color: c.success },
   btnPrimary: {
     width: "100%",
-    padding: 12,
-    backgroundColor: "#185FA5",
-    color: "#E6F1FB",
+    padding: 14,
+    backgroundColor: c.accent,
+    color: "#FFFFFF",
     border: "none",
-    borderRadius: 8,
-    fontSize: 14,
-    fontWeight: 600,
-    fontFamily: "sans-serif",
+    borderRadius: 10,
+    fontSize: 16,
+    fontWeight: 700,
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
     marginTop: 4,
     cursor: "pointer",
   },
   btnGhost: {
     padding: 10,
     backgroundColor: "#FFF",
-    color: "#1A1A1A",
-    border: "0.5px solid #DDDDCC",
+    color: c.ink,
+    border: `0.5px solid ${c.border}`,
     borderRadius: 8,
-    fontSize: 13,
-    fontFamily: "sans-serif",
+    fontSize: 15,
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
     cursor: "pointer",
   },
   addProdBtn: {
     width: "100%",
     padding: "8px 12px",
-    backgroundColor: "#E6F1FB",
-    color: "#185FA5",
-    border: "0.5px solid #B5D4F4",
+    backgroundColor: c.accentSoft,
+    color: c.accent,
+    border: `0.5px solid ${c.accentBorder}`,
     borderRadius: 8,
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: 500,
     cursor: "pointer",
-    fontFamily: "sans-serif",
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
   },
   addProdBox: {
-    backgroundColor: "#FAFAF8",
-    border: "0.5px solid #DDDDCC",
+    backgroundColor: c.bg,
+    border: `0.5px solid ${c.border}`,
     borderRadius: 8,
     padding: "10px",
     marginTop: 8,
@@ -1947,16 +1992,16 @@ const s = {
     border: "0.5px solid",
     borderRadius: 20,
     padding: "4px 10px",
-    fontSize: 11,
+    fontSize: 13,
     cursor: "pointer",
     whiteSpace: "nowrap",
-    fontFamily: "sans-serif",
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
   },
   prodRow: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
     padding: "7px 4px",
-    borderBottom: "0.5px solid #DDDDCC",
+    borderBottom: `0.5px solid ${c.border}`,
   },
 };

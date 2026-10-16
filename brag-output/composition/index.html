@@ -1,0 +1,835 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <title>Sandwich System — Brag</title>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: #faf7f2;
+      }
+      #root {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #faf7f2;
+        font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+        color: #211f1c;
+      }
+
+      /* ── fondo ambiental persistente (no timed) ───────────────────── */
+      #bgLayer {
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+        overflow: hidden;
+      }
+      .glow {
+        position: absolute;
+        border-radius: 50%;
+        filter: blur(90px);
+      }
+      #glow1 {
+        width: 980px;
+        height: 980px;
+        left: -340px;
+        top: -360px;
+        background: radial-gradient(circle, rgba(181, 73, 31, 0.26), transparent 70%);
+      }
+      #glow2 {
+        width: 860px;
+        height: 860px;
+        right: -300px;
+        bottom: -320px;
+        background: radial-gradient(circle, rgba(47, 110, 78, 0.16), transparent 70%);
+      }
+      #ghostMark {
+        position: absolute;
+        right: 60px;
+        top: 50%;
+        width: 520px;
+        height: 520px;
+        opacity: 0.045;
+        color: #b5491f;
+      }
+
+      /* ── escenas ───────────────────────────────────────────────────── */
+      .clip {
+        position: absolute;
+        inset: 0;
+        z-index: 2;
+      }
+      .sceneWrap {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+      }
+      .centered {
+        justify-content: center;
+      }
+      .split {
+        justify-content: space-between;
+        padding: 0 150px;
+      }
+
+      /* bloque centrado (hook / outro) */
+      .centerCol {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 26px;
+      }
+      .mark {
+        width: 118px;
+        height: 118px;
+        border-radius: 32px;
+        background: #f8e4d7;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .mark svg {
+        width: 58px;
+        height: 58px;
+      }
+      .wordmark {
+        font-size: 100px;
+        font-weight: 800;
+        letter-spacing: -0.015em;
+        color: #211f1c;
+      }
+      .wordmarkSmall {
+        font-size: 48px;
+        font-weight: 800;
+        letter-spacing: -0.01em;
+        color: #211f1c;
+      }
+      .tagline {
+        font-size: 40px;
+        font-weight: 500;
+        color: #6f6a62;
+        max-width: 1100px;
+      }
+      .outroLine {
+        font-size: 60px;
+        font-weight: 800;
+        color: #211f1c;
+        line-height: 1.22;
+      }
+
+      /* columna de texto (escenas de rol) */
+      .textCol {
+        display: flex;
+        flex-direction: column;
+        gap: 22px;
+        width: 760px;
+      }
+      .eyebrow {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        font-size: 30px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: #b5491f;
+      }
+      .eyebrowDot {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #b5491f;
+      }
+      .headline {
+        font-size: 74px;
+        font-weight: 800;
+        line-height: 1.08;
+        letter-spacing: -0.015em;
+        color: #211f1c;
+        max-width: 720px;
+      }
+      .subhead {
+        font-size: 36px;
+        font-weight: 500;
+        line-height: 1.4;
+        color: #6f6a62;
+        max-width: 640px;
+      }
+
+      /* ── mockup de telefono ───────────────────────────────────────── */
+      .deviceCol {
+        display: flex;
+        justify-content: center;
+        width: 620px;
+      }
+      .device {
+        width: 440px;
+        height: 896px;
+        border-radius: 58px;
+        background: #0c0a08;
+        padding: 16px;
+        box-shadow: 0 50px 100px -30px rgba(33, 31, 28, 0.35);
+        position: relative;
+      }
+      .notch {
+        position: absolute;
+        top: 16px;
+        left: 50%;
+        width: 120px;
+        height: 26px;
+        background: #0c0a08;
+        border-radius: 0 0 20px 20px;
+        z-index: 2;
+      }
+      .screen {
+        width: 100%;
+        height: 100%;
+        border-radius: 44px;
+        overflow: hidden;
+        background: #faf7f2;
+        position: relative;
+      }
+      .appTop {
+        padding: 30px 28px 20px;
+        background: #ffffff;
+        border-bottom: 1px solid #e8e2d8;
+      }
+      .appTitle {
+        font-size: 26px;
+        font-weight: 800;
+        color: #211f1c;
+        margin-bottom: 4px;
+      }
+      .appSub {
+        font-size: 18px;
+        color: #6f6a62;
+      }
+      .liveRow {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 10px;
+        font-size: 15px;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        color: #2f6e4e;
+      }
+      .liveDot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #2f6e4e;
+      }
+
+      .kpiGrid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+        padding: 22px 24px;
+      }
+      .kpi {
+        background: #f4f1e9;
+        border-radius: 18px;
+        padding: 18px 18px;
+      }
+      .kpiHot {
+        background: #f8e4d7;
+        grid-column: span 2;
+      }
+      .kpiLabel {
+        font-size: 15px;
+        font-weight: 700;
+        color: #6f6a62;
+        margin-bottom: 8px;
+        letter-spacing: 0.02em;
+      }
+      .kpiHot .kpiLabel {
+        color: #923b19;
+      }
+      .kpiVal {
+        font-size: 40px;
+        font-weight: 800;
+        color: #211f1c;
+        font-variant-numeric: tabular-nums;
+      }
+      .kpiHot .kpiVal {
+        color: #923b19;
+        font-size: 48px;
+      }
+
+      .prodRow {
+        margin: 26px 24px;
+        padding: 22px 22px;
+        border-radius: 20px;
+        border: 2px solid #b5491f;
+        background: #f8e4d7;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .prodName {
+        font-size: 28px;
+        font-weight: 700;
+        color: #211f1c;
+        margin-bottom: 6px;
+      }
+      .prodPrice {
+        font-size: 22px;
+        font-weight: 600;
+        color: #5c5047;
+      }
+      .qtyRow {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+      }
+      .qtyBtn {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        background: #f4f1e9;
+        border: 2px solid #e8e2d8;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 30px;
+        font-weight: 700;
+      }
+      .qtyNum {
+        font-size: 32px;
+        font-weight: 800;
+        min-width: 40px;
+        text-align: center;
+        font-variant-numeric: tabular-nums;
+      }
+      .cartBar {
+        margin: 10px 24px 0;
+        padding: 22px 24px;
+        border-radius: 20px;
+        background: #b5491f;
+        display: flex;
+        justify-content: space-between;
+        color: #ffffff;
+        font-size: 24px;
+        font-weight: 700;
+      }
+
+      .ticketCard {
+        margin: 24px 24px 0;
+        padding: 24px;
+        border-radius: 22px;
+        border: 3px solid #bcd4e6;
+        background: #ffffff;
+      }
+      .ticketTop {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+      }
+      .ticketId {
+        font-size: 28px;
+        font-weight: 800;
+        color: #211f1c;
+      }
+      .timerChip {
+        font-size: 18px;
+        font-weight: 800;
+        padding: 6px 16px;
+        border-radius: 20px;
+        background: #e3f0e7;
+        color: #2f6e4e;
+      }
+      .ticketItem {
+        display: flex;
+        gap: 12px;
+        font-size: 24px;
+        font-weight: 700;
+        color: #211f1c;
+        margin-bottom: 10px;
+      }
+      .ticketItem b {
+        background: #f4f1e9;
+        border: 1px solid #e8e2d8;
+        border-radius: 8px;
+        padding: 2px 10px;
+      }
+      .readyBtn {
+        margin-top: 14px;
+        width: 100%;
+        height: 58px;
+        border-radius: 14px;
+        background: #e3f0e7;
+        color: #2f6e4e;
+        font-size: 22px;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .addrBox {
+        margin: 24px 24px 14px;
+        padding: 20px 20px;
+        border-radius: 18px;
+        background: #e6eff7;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 14px;
+      }
+      .addrTxt {
+        font-size: 22px;
+        font-weight: 700;
+        color: #2a5c8c;
+        line-height: 1.3;
+      }
+      .copyChip {
+        font-size: 18px;
+        font-weight: 800;
+        color: #2a5c8c;
+        background: #ffffff;
+        border: 2px solid #bcd4e6;
+        border-radius: 20px;
+        padding: 8px 18px;
+        white-space: nowrap;
+        align-self: flex-end;
+      }
+      .payChip {
+        margin: 0 24px 16px;
+        padding: 16px 20px;
+        border-radius: 14px;
+        font-size: 22px;
+        font-weight: 800;
+        background: #fbefd9;
+        color: #9a6b12;
+      }
+      .delBtn {
+        margin: 18px 24px 24px;
+        height: 70px;
+        border-radius: 16px;
+        background: #b5491f;
+        color: #ffffff;
+        font-size: 26px;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="brag"
+      data-start="0"
+      data-duration="20"
+      data-width="1920"
+      data-height="1080"
+    >
+      <!-- fondo ambiental, presente durante todo el video -->
+      <div id="bgLayer">
+        <div class="glow" id="glow1" data-layout-allow-overflow="true"></div>
+        <div class="glow" id="glow2" data-layout-allow-overflow="true"></div>
+        <svg id="ghostMark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="0.8">
+          <path d="M3 11c0-3 4-5 9-5s9 2 9 5" />
+          <path d="M3 11h18v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2z" />
+          <path d="M6 15l.6 2.4A2 2 0 0 0 8.5 19h7a2 2 0 0 0 1.9-1.6L18 15" />
+        </svg>
+      </div>
+
+      <!-- ════════ ESCENA 1 — HOOK — 0.0 a 2.5s ════════ -->
+      <section id="scene-hook" class="clip" data-start="0" data-duration="2.5" data-track-index="1">
+        <div class="sceneWrap centered" id="hook-wrap">
+          <div class="centerCol">
+            <div class="mark" id="hook-mark">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#b5491f" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 11c0-3 4-5 9-5s9 2 9 5" />
+                <path d="M3 11h18v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2z" />
+                <path d="M6 15l.6 2.4A2 2 0 0 0 8.5 19h7a2 2 0 0 0 1.9-1.6L18 15" />
+              </svg>
+            </div>
+            <div class="wordmark" id="hook-word">Sandwich System</div>
+            <div class="tagline" id="hook-tag">Tu negocio, abierto en tu bolsillo.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════ ESCENA 2 — ADMIN — 2.5 a 7.5s ════════ -->
+      <section id="scene-admin" class="clip" data-start="2.5" data-duration="5" data-track-index="1">
+        <div class="sceneWrap split" id="admin-wrap">
+          <div class="textCol">
+            <div class="eyebrow" id="admin-eyebrow"><span class="eyebrowDot"></span>Admin / Dueño</div>
+            <div class="headline" id="admin-headline">Mira tu negocio sin estar ahí.</div>
+            <div class="subhead" id="admin-sub">Desde la casa, la otra sede, o cualquier lugar.</div>
+          </div>
+          <div class="deviceCol">
+            <div class="device" id="admin-device">
+              <div class="notch"></div>
+              <div class="screen">
+                <div class="appTop">
+                  <div class="appTitle">Admin</div>
+                  <div class="appSub">Hola, Mauricio · jueves 16 oct</div>
+                  <div class="liveRow" id="admin-live"><span class="liveDot" id="admin-livedot"></span>EN VIVO</div>
+                </div>
+                <div class="kpiGrid">
+                  <div class="kpi kpiHot" id="kpi-hero">
+                    <div class="kpiLabel">TOTAL VENDIDO</div>
+                    <div class="kpiVal" id="kpi-hero-val">$0k</div>
+                  </div>
+                  <div class="kpi" id="kpi-2">
+                    <div class="kpiLabel">PEDIDOS</div>
+                    <div class="kpiVal">38</div>
+                  </div>
+                  <div class="kpi" id="kpi-3">
+                    <div class="kpiLabel">EFECTIVO</div>
+                    <div class="kpiVal">$520k</div>
+                  </div>
+                  <div class="kpi" id="kpi-4" style="grid-column: span 2">
+                    <div class="kpiLabel">TICKET PROMEDIO</div>
+                    <div class="kpiVal">$32.6k</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════ ESCENA 3 — TOMADOR — 7.5 a 11.0s ════════ -->
+      <section id="scene-tomador" class="clip" data-start="7.5" data-duration="3.5" data-track-index="1">
+        <div class="sceneWrap split" id="tomador-wrap">
+          <div class="textCol">
+            <div class="eyebrow" id="tomador-eyebrow"><span class="eyebrowDot"></span>Tomador</div>
+            <div class="headline" id="tomador-headline">Toma el pedido en segundos.</div>
+            <div class="subhead" id="tomador-sub">Mesas, para llevar y domicilios — con el menú completo a un toque.</div>
+          </div>
+          <div class="deviceCol">
+            <div class="device" id="tomador-device">
+              <div class="notch"></div>
+              <div class="screen">
+                <div class="appTop">
+                  <div class="appTitle">Mesa 3 · Nuevo pedido</div>
+                  <div class="appSub">Sánduches</div>
+                </div>
+                <div class="prodRow">
+                  <div>
+                    <div class="prodName">Sándwich Pollo Teriyaki</div>
+                    <div class="prodPrice">$17.000</div>
+                  </div>
+                  <div class="qtyRow">
+                    <div class="qtyBtn">−</div>
+                    <div class="qtyNum" id="tomador-qty">0</div>
+                    <div class="qtyBtn">+</div>
+                  </div>
+                </div>
+                <div class="cartBar" id="tomador-cart">
+                  <span>2 productos</span>
+                  <span>$34.000</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════ ESCENA 4 — PREPARADOR — 11.0 a 14.5s ════════ -->
+      <section id="scene-preparador" class="clip" data-start="11" data-duration="3.5" data-track-index="1">
+        <div class="sceneWrap split" id="preparador-wrap">
+          <div class="textCol">
+            <div class="eyebrow" id="preparador-eyebrow"><span class="eyebrowDot"></span>Preparador</div>
+            <div class="headline" id="preparador-headline">La cocina nunca pierde un pedido.</div>
+            <div class="subhead" id="preparador-sub">Cola en tiempo real por estación, con alerta cuando algo se demora.</div>
+          </div>
+          <div class="deviceCol">
+            <div class="device" id="preparador-device">
+              <div class="notch"></div>
+              <div class="screen">
+                <div class="appTop">
+                  <div class="appTitle">Estaciones de preparación</div>
+                  <div class="appSub">Sándwiches — estación caliente</div>
+                </div>
+                <div class="ticketCard" id="ticket-1">
+                  <div class="ticketTop">
+                    <span class="ticketId">Mesa 2</span>
+                    <span class="timerChip" id="timer-chip">hace 1 min</span>
+                  </div>
+                  <div class="ticketItem"><b>2x</b> Sándwich Pollo Teriyaki</div>
+                  <div class="ticketItem"><b>1x</b> Papas criollas</div>
+                  <div class="readyBtn">Marcar listos</div>
+                </div>
+                <div class="ticketCard" id="ticket-2" style="border-color: #dcebe1">
+                  <div class="ticketTop">
+                    <span class="ticketId">Domicilio #A1F2</span>
+                    <span class="timerChip" style="background: #e3f0e7; color: #2f6e4e">hace 2 min</span>
+                  </div>
+                  <div class="ticketItem"><b>3x</b> Sándwich Cubano</div>
+                  <div class="readyBtn">Marcar listos</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════ ESCENA 5 — DOMICILIARIO — 14.5 a 18.0s ════════ -->
+      <section id="scene-domiciliario" class="clip" data-start="14.5" data-duration="3.5" data-track-index="1">
+        <div class="sceneWrap split" id="domiciliario-wrap">
+          <div class="textCol">
+            <div class="eyebrow" id="domiciliario-eyebrow"><span class="eyebrowDot"></span>Domiciliario</div>
+            <div class="headline" id="domiciliario-headline">Directo a la puerta, sin perder tiempo.</div>
+            <div class="subhead" id="domiciliario-sub">Dirección y pago listos para copiar — y un toque para cerrar la entrega.</div>
+          </div>
+          <div class="deviceCol">
+            <div class="device" id="domiciliario-device">
+              <div class="notch"></div>
+              <div class="screen">
+                <div class="appTop">
+                  <div class="appTitle">Pedidos para entregar</div>
+                  <div class="appSub">1 en cola</div>
+                </div>
+                <div class="ticketCard" style="margin-top: 26px">
+                  <div class="ticketTop">
+                    <span class="ticketId">Pedido #A1F2</span>
+                    <span class="timerChip" style="background: #f4f1e9; color: #6f6a62">hace 4 min</span>
+                  </div>
+                  <div class="addrBox">
+                    <span class="addrTxt">Cra 8 #22-10, apto 301</span>
+                    <span class="copyChip" id="copy-chip">Copiar</span>
+                  </div>
+                  <div class="payChip">Cobrar efectivo</div>
+                  <div class="ticketItem"><b>3x</b> Sándwich Cubano</div>
+                </div>
+                <div class="delBtn" id="del-btn">Marcar como entregado</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════ ESCENA 6 — OUTRO — 18.0 a 20.0s ════════ -->
+      <section id="scene-outro" class="clip" data-start="18" data-duration="2" data-track-index="1">
+        <div class="sceneWrap centered" id="outro-wrap">
+          <div class="centerCol">
+            <div class="mark" id="outro-mark" style="width: 86px; height: 86px; border-radius: 24px">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#b5491f" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width: 42px; height: 42px">
+                <path d="M20 6L9 17l-5-5" />
+              </svg>
+            </div>
+            <div id="outro-headline">
+              <div class="outroLine">Un negocio. Cuatro roles.</div>
+              <div class="outroLine">Un solo sistema.</div>
+            </div>
+            <div class="tagline" id="outro-sub" style="font-size: 30px">Sandwich System</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════ AUDIO ════════ -->
+      <audio
+        id="bgm"
+        src="assets/music/happy-beats-business-moves-vol-1-by-ende-dot-app.mp3"
+        data-start="0"
+        data-duration="20"
+        data-track-index="10"
+        data-automation='{"version":1,"lanes":[{"target":"volume","points":[{"t":0,"v":0},{"t":1,"v":0.45},{"t":2.5,"v":0.85},{"t":17.5,"v":0.85},{"t":18,"v":0.85},{"t":19.3,"v":0.15},{"t":20,"v":0.15}]}]}'
+      ></audio>
+
+      <audio id="sfx-ping" src="assets/sfx/interface/bong_001.ogg" data-start="3.55" data-duration="0.5" data-track-index="11" data-volume="0.9"></audio>
+      <audio id="sfx-tap1" src="assets/sfx/interface/click_003.ogg" data-start="8.8" data-duration="0.3" data-track-index="12" data-volume="0.9"></audio>
+      <audio id="sfx-tick" src="assets/sfx/ui/click2.ogg" data-start="13" data-duration="0.3" data-track-index="13" data-volume="0.85"></audio>
+      <audio id="sfx-tap2" src="assets/sfx/interface/click_003.ogg" data-start="15.3" data-duration="0.3" data-track-index="14" data-volume="0.9"></audio>
+      <audio id="sfx-confirm" src="assets/sfx/impact/impactSoft_medium_001.ogg" data-start="17.5" data-duration="0.4" data-track-index="15" data-volume="1"></audio>
+    </div>
+
+    <script>
+      const tl = gsap.timeline({ paused: true });
+
+      /* ── fondo ambiental: respiracion lenta, todo el video ──────────── */
+      tl.fromTo("#glow1", { scale: 1 }, { scale: 1.08, duration: 6, ease: "sine.inOut", repeat: -1, yoyo: true }, 0);
+      tl.fromTo("#glow2", { scale: 1 }, { scale: 1.06, duration: 7, ease: "sine.inOut", repeat: -1, yoyo: true }, 0.4);
+      tl.fromTo("#ghostMark", { x: -16, y: "-50%" }, { x: 16, y: "-50%", duration: 10, ease: "sine.inOut", repeat: -1, yoyo: true }, 0);
+
+      /* ════════ ESCENA 1 — HOOK (0 – 2.5s) ════════ */
+      tl.addLabel("hook", 0);
+      tl.fromTo("#hook-wrap", { opacity: 0, scale: 0.97 }, { opacity: 1, scale: 1, duration: 0.5, ease: "power2.out" }, "hook");
+      tl.fromTo("#hook-mark", { scale: 0.7, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.5, ease: "back.out(1.6)" }, "hook+=0.05");
+      tl.fromTo("#hook-word", { y: 18, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, "hook+=0.2");
+      tl.fromTo("#hook-tag", { y: 14, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: "power3.out" }, "hook+=0.4");
+      tl.to("#hook-wrap", { opacity: 0, duration: 0.4, ease: "power2.in" }, 2.1);
+
+      /* ════════ ESCENA 2 — ADMIN (2.5 – 7.5s) ════════ */
+      tl.addLabel("admin", 2.5);
+      tl.fromTo("#admin-wrap", { opacity: 0, x: 50 }, { opacity: 1, x: 0, duration: 0.45, ease: "power3.out" }, "admin");
+      tl.fromTo("#admin-eyebrow", { y: 14, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4, ease: "power2.out" }, "admin+=0.05");
+      tl.fromTo("#admin-headline", { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, "admin+=0.15");
+      tl.fromTo("#admin-sub", { y: 16, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: "power2.out" }, "admin+=0.3");
+      tl.fromTo(
+        "#admin-device",
+        { scale: 0.92, y: 24, opacity: 0 },
+        { scale: 1, y: 0, opacity: 1, duration: 0.6, ease: "back.out(1.15)" },
+        "admin+=0.1",
+      );
+
+      // insignia EN VIVO: aparece con el telefono y respira el resto de la escena
+      tl.fromTo("#admin-live", { opacity: 0 }, { opacity: 1, duration: 0.3 }, "admin+=0.65");
+      tl.fromTo(
+        "#admin-livedot",
+        { scale: 1 },
+        { scale: 1.5, duration: 0.55, ease: "sine.inOut", repeat: -1, yoyo: true },
+        "admin+=0.65",
+      );
+
+      // conteo del KPI principal — "Total vendido" 0 -> $1.240k
+      tl.to(
+        { v: 0 },
+        {
+          v: 1240,
+          duration: 1,
+          ease: "power2.out",
+          onUpdate: function () {
+            const n = Math.round(this.targets()[0].v);
+            document.getElementById("kpi-hero-val").textContent = "$" + n.toLocaleString("es-CO") + "k";
+          },
+        },
+        "admin+=0.5",
+      );
+
+      // las 3 tarjetas KPI de apoyo entran en secuencia, ancladas a la rejilla de
+      // beats de la pista (120.19 BPM) para que el ritmo se sienta musical
+      // beat-grid: kpi-2 4.02s, kpi-3 5.03s, kpi-4 6.03s
+      tl.fromTo("#kpi-2", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.35, ease: "power2.out" }, 4.02);
+      tl.fromTo("#kpi-3", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.35, ease: "power2.out" }, 5.03);
+      tl.fromTo("#kpi-4", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.35, ease: "power2.out" }, 6.03);
+
+      tl.to("#admin-wrap", { opacity: 0, x: -50, duration: 0.4, ease: "power2.in" }, 7.1);
+
+      /* ════════ ESCENA 3 — TOMADOR (7.5 – 11.0s) ════════ */
+      tl.addLabel("tomador", 7.5);
+      tl.fromTo("#tomador-wrap", { opacity: 0, x: 50 }, { opacity: 1, x: 0, duration: 0.45, ease: "power3.out" }, "tomador");
+      tl.fromTo("#tomador-eyebrow", { y: 14, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4 }, "tomador+=0.05");
+      tl.fromTo("#tomador-headline", { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, "tomador+=0.15");
+      tl.fromTo("#tomador-sub", { y: 16, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45 }, "tomador+=0.3");
+      tl.fromTo(
+        "#tomador-device",
+        { scale: 0.92, y: 24, opacity: 0 },
+        { scale: 1, y: 0, opacity: 1, duration: 0.6, ease: "back.out(1.15)" },
+        "tomador+=0.1",
+      );
+      tl.fromTo("#tomador-cart", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.3 }, "tomador+=0.75");
+
+      // el contador de cantidad salta de 0 a 2 — un toque simulado
+      tl.to(
+        { v: 0 },
+        {
+          v: 2,
+          duration: 0.01,
+          onComplete: function () {
+            document.getElementById("tomador-qty").textContent = "2";
+          },
+        },
+        "tomador+=1.3",
+      );
+      tl.fromTo("#tomador-qty", { scale: 1 }, { scale: 1.5, duration: 0.18, ease: "power2.out", yoyo: true, repeat: 1 }, "tomador+=1.3");
+
+      tl.to("#tomador-wrap", { opacity: 0, x: -50, duration: 0.4, ease: "power2.in" }, 10.6);
+
+      /* ════════ ESCENA 4 — PREPARADOR (11.0 – 14.5s) ════════ */
+      tl.addLabel("preparador", 11);
+      tl.fromTo("#preparador-wrap", { opacity: 0, x: 50 }, { opacity: 1, x: 0, duration: 0.45, ease: "power3.out" }, "preparador");
+      tl.fromTo("#preparador-eyebrow", { y: 14, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4 }, "preparador+=0.05");
+      tl.fromTo("#preparador-headline", { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, "preparador+=0.15");
+      tl.fromTo("#preparador-sub", { y: 16, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45 }, "preparador+=0.3");
+      tl.fromTo(
+        "#preparador-device",
+        { scale: 0.92, y: 24, opacity: 0 },
+        { scale: 1, y: 0, opacity: 1, duration: 0.6, ease: "back.out(1.15)" },
+        "preparador+=0.1",
+      );
+      // los dos tiquetes entran en secuencia dentro del telefono
+      tl.fromTo("#ticket-1", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.3 }, "preparador+=0.45");
+      tl.fromTo("#ticket-2", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.3 }, "preparador+=0.65");
+
+      // el cronometro cambia de verde a ambar — temporizacion natural: ningun
+      // beat fuerte cae dentro de esta ventana (11.0-14.5s), asi que se deja
+      // el ritmo de la narrativa en vez de forzar un cue
+      tl.to(
+        "#timer-chip",
+        {
+          backgroundColor: "#fbefd9",
+          color: "#926511",
+          duration: 0.25,
+          onStart: function () {
+            document.getElementById("timer-chip").textContent = "hace 7 min";
+          },
+        },
+        13,
+      );
+
+      tl.to("#preparador-wrap", { opacity: 0, x: -50, duration: 0.4, ease: "power2.in" }, 14.1);
+
+      /* ════════ ESCENA 5 — DOMICILIARIO (14.5 – 18.0s) ════════ */
+      tl.addLabel("domiciliario", 14.5);
+      tl.fromTo("#domiciliario-wrap", { opacity: 0, x: 50 }, { opacity: 1, x: 0, duration: 0.45, ease: "power3.out" }, "domiciliario");
+      tl.fromTo("#domiciliario-eyebrow", { y: 14, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4 }, "domiciliario+=0.05");
+      tl.fromTo(
+        "#domiciliario-headline",
+        { y: 20, opacity: 0 },
+        { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" },
+        "domiciliario+=0.15",
+      );
+      tl.fromTo("#domiciliario-sub", { y: 16, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45 }, "domiciliario+=0.3");
+      tl.fromTo(
+        "#domiciliario-device",
+        { scale: 0.92, y: 24, opacity: 0 },
+        { scale: 1, y: 0, opacity: 1, duration: 0.6, ease: "back.out(1.15)" },
+        "domiciliario+=0.1",
+      );
+
+      // toque en "Copiar" -> confirma
+      tl.to("#copy-chip", { scale: 0.9, duration: 0.1, yoyo: true, repeat: 1 }, 15.3);
+      tl.call(
+        () => {
+          document.getElementById("copy-chip").textContent = "Copiado ✓";
+        },
+        null,
+        15.35,
+      );
+
+      // toque en "Marcar como entregado" — anclado al beat fuerte de la pista
+      // beat-locked: 17.52s (strong_beat, dentro de ±0.15s con 17.5)
+      tl.to("#del-btn", { scale: 0.96, duration: 0.12, yoyo: true, repeat: 1 }, 17.5);
+
+      tl.to("#domiciliario-wrap", { opacity: 0, x: -50, duration: 0.25, ease: "power2.in" }, 17.75);
+
+      /* ════════ ESCENA 6 — OUTRO (18.0 – 20.0s) ════════ */
+      tl.addLabel("outro", 18);
+      tl.fromTo("#outro-wrap", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" }, "outro+=0.1");
+      tl.fromTo("#outro-mark", { scale: 0.8, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.4, ease: "back.out(1.6)" }, "outro+=0.15");
+      tl.fromTo("#outro-headline", { y: 16, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, "outro+=0.3");
+      tl.fromTo("#outro-sub", { y: 12, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4 }, "outro+=0.55");
+
+      window.__timelines["brag"] = tl;
+      tl.seek(0);
+    </script>
+  </body>
+</html>

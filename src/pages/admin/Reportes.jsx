@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
+import { theme } from "../../theme";
+
+const c = theme.color;
 
 function bogotaHour(dateStr) {
   const h = new Intl.DateTimeFormat("en-US", {
@@ -506,9 +509,9 @@ export default function Reportes() {
     adicion: "Adiciones",
   };
   const CAT_COLOR = {
-    sandwich: "#185FA5",
-    granizado: "#0F6E56",
-    adicion: "#854F0B",
+    sandwich: c.accent,
+    granizado: c.teal,
+    adicion: c.warn,
   };
   const TYPE_LABEL = {
     mesa: "Mesa",
@@ -516,9 +519,9 @@ export default function Reportes() {
     domicilio: "Domicilio",
   };
   const TYPE_COLOR = {
-    mesa: "#185FA5",
-    para_llevar: "#854F0B",
-    domicilio: "#0F6E56",
+    mesa: c.accent,
+    para_llevar: c.warn,
+    domicilio: c.teal,
   };
   const GASTO_LABEL = {
     materia_prima: "Materia prima",
@@ -528,11 +531,11 @@ export default function Reportes() {
     otro: "Otro",
   };
   const GASTO_COLOR = {
-    materia_prima: "#185FA5",
-    servicios: "#0F6E56",
-    arriendo: "#854F0B",
-    nomina: "#534AB7",
-    otro: "#444441",
+    materia_prima: c.accent,
+    servicios: c.teal,
+    arriendo: c.warn,
+    nomina: c.indigo,
+    otro: c.inkSoft,
   };
 
   const maxQty = topProducts[0]?.qty ?? 1;
@@ -575,9 +578,9 @@ export default function Reportes() {
             key={val}
             style={{
               ...s.tab,
-              backgroundColor: tab === val ? "#E6F1FB" : "#FFF",
-              borderColor: tab === val ? "#378ADD" : "#DDDDCC",
-              color: tab === val ? "#185FA5" : "#666660",
+              backgroundColor: tab === val ? c.accentSoft : "#FFF",
+              borderColor: tab === val ? c.accent : c.border,
+              color: tab === val ? c.accent : c.inkSoft,
               fontWeight: tab === val ? 600 : 400,
             }}
             onClick={() => setTab(val)}
@@ -597,7 +600,7 @@ export default function Reportes() {
           }}
         >
           <div>
-            <p style={{ fontSize: 11, color: "#666660", margin: "0 0 4px" }}>
+            <p style={{ fontSize: 13, color: c.inkSoft, margin: "0 0 4px" }}>
               Desde
             </p>
             <input
@@ -608,7 +611,7 @@ export default function Reportes() {
             />
           </div>
           <div>
-            <p style={{ fontSize: 11, color: "#666660", margin: "0 0 4px" }}>
+            <p style={{ fontSize: 13, color: c.inkSoft, margin: "0 0 4px" }}>
               Hasta
             </p>
             <input
@@ -700,10 +703,10 @@ export default function Reportes() {
               {stats.total > 0 && (
                 <div style={s.barWrap}>
                   <div style={s.barLabels}>
-                    <span style={{ color: "#3B6D11", fontSize: 11 }}>
+                    <span style={{ color: c.success, fontSize: 13 }}>
                       Efectivo {Math.round((stats.cash / stats.total) * 100)}%
                     </span>
-                    <span style={{ color: "#185FA5", fontSize: 11 }}>
+                    <span style={{ color: c.accent, fontSize: 13 }}>
                       Transferencia{" "}
                       {Math.round((stats.transfer / stats.total) * 100)}%
                     </span>
@@ -713,14 +716,14 @@ export default function Reportes() {
                       style={{
                         ...s.barFill,
                         width: `${Math.round((stats.cash / stats.total) * 100)}%`,
-                        backgroundColor: "#3B6D11",
+                        backgroundColor: c.success,
                       }}
                     />
                     <div
                       style={{
                         ...s.barFill,
                         width: `${Math.round((stats.transfer / stats.total) * 100)}%`,
-                        backgroundColor: "#378ADD",
+                        backgroundColor: c.accent,
                       }}
                     />
                   </div>
@@ -768,7 +771,7 @@ export default function Reportes() {
                           <div
                             style={{
                               ...s.catDot,
-                              backgroundColor: TYPE_COLOR[type] ?? "#888880",
+                              backgroundColor: TYPE_COLOR[type] ?? c.inkFaint,
                             }}
                           />
                           <span style={s.catName}>
@@ -867,9 +870,9 @@ export default function Reportes() {
                 key={val}
                 style={{
                   ...s.histTab,
-                  backgroundColor: histTab === val ? "#E6F1FB" : "#FFF",
-                  borderColor: histTab === val ? "#378ADD" : "#DDDDCC",
-                  color: histTab === val ? "#185FA5" : "#666660",
+                  backgroundColor: histTab === val ? c.accentSoft : "#FFF",
+                  borderColor: histTab === val ? c.accent : c.border,
+                  color: histTab === val ? c.accent : c.inkSoft,
                   fontWeight: histTab === val ? 600 : 400,
                 }}
                 onClick={() => setHistTab(val)}
@@ -954,9 +957,9 @@ export default function Reportes() {
                 key={val}
                 style={{
                   ...s.histTab,
-                  backgroundColor: statsTab === val ? "#E6F1FB" : "#FFF",
-                  borderColor: statsTab === val ? "#378ADD" : "#DDDDCC",
-                  color: statsTab === val ? "#185FA5" : "#666660",
+                  backgroundColor: statsTab === val ? c.accentSoft : "#FFF",
+                  borderColor: statsTab === val ? c.accent : c.border,
+                  color: statsTab === val ? c.accent : c.inkSoft,
                   fontWeight: statsTab === val ? 600 : 400,
                 }}
                 onClick={() => setStatsTab(val)}
@@ -977,7 +980,7 @@ export default function Reportes() {
             >
               <div>
                 <p
-                  style={{ fontSize: 11, color: "#666660", margin: "0 0 4px" }}
+                  style={{ fontSize: 13, color: c.inkSoft, margin: "0 0 4px" }}
                 >
                   Desde
                 </p>
@@ -990,7 +993,7 @@ export default function Reportes() {
               </div>
               <div>
                 <p
-                  style={{ fontSize: 11, color: "#666660", margin: "0 0 4px" }}
+                  style={{ fontSize: 13, color: c.inkSoft, margin: "0 0 4px" }}
                 >
                   Hasta
                 </p>
@@ -1013,18 +1016,18 @@ export default function Reportes() {
               {/* ── INGRESOS vs GASTOS vs UTILIDAD ── */}
               <p style={s.sectionLabel}>Resumen financiero</p>
               <div style={s.finGrid}>
-                <div style={{ ...s.finCard, borderLeftColor: "#3B6D11" }}>
+                <div style={{ ...s.finCard, borderLeftColor: c.success }}>
                   <p style={s.statLabel}>Ingresos</p>
-                  <p style={{ ...s.statVal, fontSize: 16, color: "#3B6D11" }}>
+                  <p style={{ ...s.statVal, fontSize: 18, color: c.success }}>
                     {formatPrice(statsData.totalIngresos)}
                   </p>
                   <p style={s.statSub}>
                     {statsData.totalUnidades} uds vendidas
                   </p>
                 </div>
-                <div style={{ ...s.finCard, borderLeftColor: "#A32D2D" }}>
+                <div style={{ ...s.finCard, borderLeftColor: c.danger }}>
                   <p style={s.statLabel}>Gastos</p>
-                  <p style={{ ...s.statVal, fontSize: 16, color: "#A32D2D" }}>
+                  <p style={{ ...s.statVal, fontSize: 18, color: c.danger }}>
                     {formatPrice(statsData.totalGastos)}
                   </p>
                   <p style={s.statSub}>registrados</p>
@@ -1036,15 +1039,15 @@ export default function Reportes() {
                 style={{
                   ...s.utilCard,
                   backgroundColor:
-                    statsData.utilidad >= 0 ? "#EAF3DE" : "#FCEBEB",
-                  borderColor: statsData.utilidad >= 0 ? "#3B6D11" : "#A32D2D",
+                    statsData.utilidad >= 0 ? c.successSoft : c.dangerSoft,
+                  borderColor: statsData.utilidad >= 0 ? c.success : c.danger,
                 }}
               >
                 <div>
                   <p
                     style={{
                       ...s.statLabel,
-                      color: statsData.utilidad >= 0 ? "#3B6D11" : "#A32D2D",
+                      color: statsData.utilidad >= 0 ? c.success : c.danger,
                     }}
                   >
                     {statsData.utilidad >= 0
@@ -1053,8 +1056,8 @@ export default function Reportes() {
                   </p>
                   <p
                     style={{
-                      fontSize: 10,
-                      color: statsData.utilidad >= 0 ? "#3B6D11" : "#A32D2D",
+                      fontSize: 12,
+                      color: statsData.utilidad >= 0 ? c.success : c.danger,
                       margin: 0,
                     }}
                   >
@@ -1065,7 +1068,7 @@ export default function Reportes() {
                   style={{
                     fontSize: 22,
                     fontWeight: 700,
-                    color: statsData.utilidad >= 0 ? "#3B6D11" : "#A32D2D",
+                    color: statsData.utilidad >= 0 ? c.success : c.danger,
                     margin: 0,
                   }}
                 >
@@ -1083,7 +1086,7 @@ export default function Reportes() {
                       marginBottom: 4,
                     }}
                   >
-                    <span style={{ fontSize: 11, color: "#3B6D11" }}>
+                    <span style={{ fontSize: 13, color: c.success }}>
                       Ingresos{" "}
                       {Math.round(
                         (statsData.totalIngresos /
@@ -1092,7 +1095,7 @@ export default function Reportes() {
                       )}
                       %
                     </span>
-                    <span style={{ fontSize: 11, color: "#A32D2D" }}>
+                    <span style={{ fontSize: 13, color: c.danger }}>
                       Gastos{" "}
                       {Math.round(
                         (statsData.totalGastos /
@@ -1107,14 +1110,14 @@ export default function Reportes() {
                       style={{
                         ...s.barFill,
                         width: `${Math.round((statsData.totalIngresos / (statsData.totalIngresos + statsData.totalGastos)) * 100)}%`,
-                        backgroundColor: "#3B6D11",
+                        backgroundColor: c.success,
                       }}
                     />
                     <div
                       style={{
                         ...s.barFill,
                         width: `${Math.round((statsData.totalGastos / (statsData.totalIngresos + statsData.totalGastos)) * 100)}%`,
-                        backgroundColor: "#A32D2D",
+                        backgroundColor: c.danger,
                       }}
                     />
                   </div>
@@ -1141,7 +1144,7 @@ export default function Reportes() {
                             <div
                               style={{
                                 ...s.catDot,
-                                backgroundColor: GASTO_COLOR[cat] ?? "#888880",
+                                backgroundColor: GASTO_COLOR[cat] ?? c.inkFaint,
                               }}
                             />
                             <span style={s.catName}>
@@ -1149,9 +1152,9 @@ export default function Reportes() {
                             </span>
                             <span
                               style={{
-                                fontSize: 12,
+                                fontSize: 14,
                                 fontWeight: 500,
-                                color: "#A32D2D",
+                                color: c.danger,
                               }}
                             >
                               {formatPrice(amount)}
@@ -1190,7 +1193,7 @@ export default function Reportes() {
                     <div
                       style={{
                         ...s.catDot,
-                        backgroundColor: CAT_COLOR[cat] ?? "#888880",
+                        backgroundColor: CAT_COLOR[cat] ?? c.inkFaint,
                       }}
                     />
                     <span style={s.catName}>{CAT_LABEL[cat] ?? cat}</span>
@@ -1220,7 +1223,7 @@ export default function Reportes() {
                       <div
                         style={{
                           ...s.catDot,
-                          backgroundColor: TYPE_COLOR[type] ?? "#888880",
+                          backgroundColor: TYPE_COLOR[type] ?? c.inkFaint,
                         }}
                       />
                       <span style={s.catName}>{TYPE_LABEL[type] ?? type}</span>
@@ -1274,7 +1277,7 @@ export default function Reportes() {
                           gap: 6,
                         }}
                       >
-                        <span style={{ ...s.rankNum, fontSize: 12 }}>
+                        <span style={{ ...s.rankNum, fontSize: 14 }}>
                           {i + 1}
                         </span>
                         <span style={s.statProdName}>{p.name}</span>
@@ -1286,18 +1289,18 @@ export default function Reportes() {
                         style={{
                           ...s.statBarFill,
                           width: `${Math.round((p.qty / maxRankQty) * 100)}%`,
-                          backgroundColor: CAT_COLOR[p.category] ?? "#185FA5",
+                          backgroundColor: CAT_COLOR[p.category] ?? c.accent,
                         }}
                       />
                     </div>
                     <div style={s.statProdBottom}>
-                      <span style={{ ...s.catName, fontSize: 10 }}>
+                      <span style={{ ...s.catName, fontSize: 12 }}>
                         {CAT_LABEL[p.category] ?? p.category}
                       </span>
                       <span
                         style={{
-                          fontSize: 11,
-                          color: "#3B6D11",
+                          fontSize: 13,
+                          color: c.success,
                           fontWeight: 500,
                         }}
                       >
@@ -1321,16 +1324,16 @@ export default function Reportes() {
                 </div>
                 {statsData.ranking.map((p) => (
                   <div key={p.name} style={s.tablaRow}>
-                    <span style={{ flex: 1, fontSize: 12, color: "#1A1A1A" }}>
+                    <span style={{ flex: 1, fontSize: 14, color: c.ink }}>
                       {p.name}
                     </span>
                     <span
                       style={{
                         minWidth: 50,
                         textAlign: "right",
-                        fontSize: 12,
+                        fontSize: 14,
                         fontWeight: 500,
-                        color: "#1A1A1A",
+                        color: c.ink,
                       }}
                     >
                       {p.qty}
@@ -1339,8 +1342,8 @@ export default function Reportes() {
                       style={{
                         minWidth: 80,
                         textAlign: "right",
-                        fontSize: 12,
-                        color: "#3B6D11",
+                        fontSize: 14,
+                        color: c.success,
                         fontWeight: 500,
                       }}
                     >
@@ -1367,9 +1370,9 @@ export default function Reportes() {
                 key={val}
                 style={{
                   ...s.histTab,
-                  backgroundColor: domTab === val ? "#E6F1FB" : "#FFF",
-                  borderColor: domTab === val ? "#378ADD" : "#DDDDCC",
-                  color: domTab === val ? "#185FA5" : "#666660",
+                  backgroundColor: domTab === val ? c.accentSoft : "#FFF",
+                  borderColor: domTab === val ? c.accent : c.border,
+                  color: domTab === val ? c.accent : c.inkSoft,
                   fontWeight: domTab === val ? 600 : 400,
                 }}
                 onClick={() => setDomTab(val)}
@@ -1389,7 +1392,7 @@ export default function Reportes() {
               }}
             >
               <div>
-                <p style={{ fontSize: 11, color: "#666660", margin: "0 0 4px" }}>
+                <p style={{ fontSize: 13, color: c.inkSoft, margin: "0 0 4px" }}>
                   Desde
                 </p>
                 <input
@@ -1400,7 +1403,7 @@ export default function Reportes() {
                 />
               </div>
               <div>
-                <p style={{ fontSize: 11, color: "#666660", margin: "0 0 4px" }}>
+                <p style={{ fontSize: 13, color: c.inkSoft, margin: "0 0 4px" }}>
                   Hasta
                 </p>
                 <input
@@ -1496,7 +1499,7 @@ export default function Reportes() {
                   <span>{formatPrice(stats?.transfer)}</span>
                 </div>
                 <div style={s.divider} />
-                <div style={{ ...s.confirmRow, fontWeight: 600, fontSize: 15 }}>
+                <div style={{ ...s.confirmRow, fontWeight: 600, fontSize: 17 }}>
                   <span>Total del día</span>
                   <span>{formatPrice(stats?.total)}</span>
                 </div>
@@ -1522,8 +1525,8 @@ export default function Reportes() {
 const s = {
   page: {
     minHeight: "100vh",
-    backgroundColor: "#FAFAF8",
-    fontFamily: "sans-serif",
+    backgroundColor: c.bg,
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
   },
   topbar: {
     display: "flex",
@@ -1531,29 +1534,29 @@ const s = {
     justifyContent: "space-between",
     padding: "12px 16px",
     backgroundColor: "#FFF",
-    borderBottom: "0.5px solid #DDDDCC",
+    borderBottom: `0.5px solid ${c.border}`,
   },
   topLeft: { display: "flex", alignItems: "center", gap: 10 },
   backBtn: {
-    fontSize: 18,
+    fontSize: 20,
     background: "none",
     border: "none",
     cursor: "pointer",
-    color: "#666660",
+    color: c.inkSoft,
     padding: "0 4px",
   },
-  title: { fontSize: 16, fontWeight: 600, color: "#1A1A1A", margin: "0 0 2px" },
+  title: { fontSize: 18, fontWeight: 600, color: c.ink, margin: "0 0 2px" },
   sub: {
-    fontSize: 11,
-    color: "#666660",
+    fontSize: 13,
+    color: c.inkSoft,
     margin: 0,
     textTransform: "capitalize",
   },
   closedBadge: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: 500,
-    backgroundColor: "#EAF3DE",
-    color: "#27500A",
+    backgroundColor: c.successSoft,
+    color: c.success,
     padding: "4px 10px",
     borderRadius: 20,
   },
@@ -1562,55 +1565,55 @@ const s = {
     gap: 6,
     padding: "10px 16px",
     backgroundColor: "#FFF",
-    borderBottom: "0.5px solid #DDDDCC",
+    borderBottom: `0.5px solid ${c.border}`,
   },
   tab: {
     flex: 1,
     border: "0.5px solid",
     borderRadius: 8,
     padding: "8px 4px",
-    fontSize: 12,
+    fontSize: 14,
     cursor: "pointer",
-    fontFamily: "sans-serif",
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
   },
   body: { padding: 16 },
-  loadTxt: { fontSize: 13, color: "#888880", textAlign: "center", padding: 20 },
+  loadTxt: { fontSize: 15, color: c.inkFaint, textAlign: "center", padding: 20 },
   viewingPastBox: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#E6F1FB",
+    backgroundColor: c.accentSoft,
     borderRadius: 8,
     padding: "8px 12px",
     marginBottom: 12,
   },
   viewingPastTxt: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: 500,
-    color: "#185FA5",
+    color: c.accent,
     textTransform: "capitalize",
   },
   backToTodayBtn: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: 500,
-    color: "#185FA5",
+    color: c.accent,
     background: "none",
-    border: "0.5px solid #B5D4F4",
+    border: `0.5px solid ${c.accentBorder}`,
     borderRadius: 20,
     padding: "4px 10px",
     cursor: "pointer",
   },
   missingBox: {
-    backgroundColor: "#FCEBEB",
-    border: "0.5px solid #F5BCBC",
+    backgroundColor: c.dangerSoft,
+    border: `0.5px solid ${c.dangerBorder}`,
     borderRadius: 8,
     padding: "10px 12px",
     marginBottom: 12,
   },
   missingTitle: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: 600,
-    color: "#A32D2D",
+    color: c.danger,
     margin: "0 0 8px",
   },
   missingList: { display: "flex", flexDirection: "column", gap: 6 },
@@ -1620,20 +1623,20 @@ const s = {
     alignItems: "center",
     width: "100%",
     backgroundColor: "#FFF",
-    border: "0.5px solid #F5BCBC",
+    border: `0.5px solid ${c.dangerBorder}`,
     borderRadius: 6,
     padding: "8px 10px",
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: 500,
-    color: "#1A1A1A",
-    fontFamily: "sans-serif",
+    color: c.ink,
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
     cursor: "pointer",
     textTransform: "capitalize",
   },
   missingMeta: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: 400,
-    color: "#888880",
+    color: c.inkFaint,
     textTransform: "none",
   },
   statsGrid: {
@@ -1643,18 +1646,18 @@ const s = {
     marginBottom: 12,
   },
   statCard: {
-    backgroundColor: "#F1EFE8",
+    backgroundColor: c.bgMuted,
     borderRadius: 8,
     padding: "10px 12px",
   },
-  statLabel: { fontSize: 10, color: "#666660", margin: "0 0 4px" },
+  statLabel: { fontSize: 12, color: c.inkSoft, margin: "0 0 4px" },
   statVal: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 600,
-    color: "#1A1A1A",
+    color: c.ink,
     margin: "0 0 2px",
   },
-  statSub: { fontSize: 10, color: "#666660", margin: 0 },
+  statSub: { fontSize: 12, color: c.inkSoft, margin: 0 },
   barWrap: { marginBottom: 12 },
   barLabels: {
     display: "flex",
@@ -1663,17 +1666,17 @@ const s = {
   },
   barTrack: {
     height: 8,
-    backgroundColor: "#F1EFE8",
+    backgroundColor: c.bgMuted,
     borderRadius: 4,
     display: "flex",
     overflow: "hidden",
   },
   barFill: { height: "100%" },
-  divider: { height: "0.5px", backgroundColor: "#DDDDCC", margin: "12px 0" },
+  divider: { height: "0.5px", backgroundColor: c.border, margin: "12px 0" },
   sectionLabel: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: 500,
-    color: "#666660",
+    color: c.inkSoft,
     marginBottom: 8,
   },
   rankList: {
@@ -1683,26 +1686,26 @@ const s = {
     marginBottom: 4,
   },
   rankRow: { display: "flex", alignItems: "center", gap: 8 },
-  rankNum: { fontSize: 11, color: "#888880", minWidth: 14, fontWeight: 500 },
-  rankName: { fontSize: 12, color: "#1A1A1A", flex: 1 },
+  rankNum: { fontSize: 13, color: c.inkFaint, minWidth: 14, fontWeight: 500 },
+  rankName: { fontSize: 14, color: c.ink, flex: 1 },
   rankBarWrap: {
     width: 60,
     height: 6,
-    backgroundColor: "#F1EFE8",
+    backgroundColor: c.bgMuted,
     borderRadius: 3,
     overflow: "hidden",
   },
-  rankBar: { height: "100%", backgroundColor: "#185FA5", borderRadius: 3 },
-  rankQty: { fontSize: 11, color: "#888880", minWidth: 60, textAlign: "right" },
+  rankBar: { height: "100%", backgroundColor: c.accent, borderRadius: 3 },
+  rankQty: { fontSize: 13, color: c.inkFaint, minWidth: 60, textAlign: "right" },
   hourLabel: {
-    fontSize: 12,
-    color: "#1A1A1A",
+    fontSize: 14,
+    color: c.ink,
     minWidth: 42,
     fontWeight: 500,
   },
   histTrendLabel: {
-    fontSize: 11,
-    color: "#666660",
+    fontSize: 13,
+    color: c.inkSoft,
     minWidth: 42,
     textTransform: "capitalize",
   },
@@ -1713,57 +1716,57 @@ const s = {
     alignItems: "center",
     padding: "8px 12px",
     backgroundColor: "#FFF",
-    border: "0.5px solid #DDDDCC",
+    border: `0.5px solid ${c.border}`,
     borderRadius: 8,
   },
   orderTitle: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: 500,
-    color: "#1A1A1A",
+    color: c.ink,
     margin: "0 0 2px",
     textTransform: "capitalize",
   },
   orderMeta: {
-    fontSize: 11,
-    color: "#888880",
+    fontSize: 13,
+    color: c.inkFaint,
     margin: 0,
     textTransform: "capitalize",
   },
-  orderTotal: { fontSize: 13, fontWeight: 500, color: "#1A1A1A" },
+  orderTotal: { fontSize: 15, fontWeight: 500, color: c.ink },
   btnCierre: {
     width: "100%",
     padding: 12,
-    backgroundColor: "#185FA5",
-    color: "#E6F1FB",
+    backgroundColor: c.accent,
+    color: "#FFFFFF",
     border: "none",
     borderRadius: 8,
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: 600,
-    fontFamily: "sans-serif",
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
     cursor: "pointer",
     marginTop: 4,
   },
   closedBox: {
-    backgroundColor: "#EAF3DE",
+    backgroundColor: c.successSoft,
     borderRadius: 8,
     padding: "12px 14px",
   },
   closedTxt: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: 500,
-    color: "#3B6D11",
+    color: c.success,
     margin: "0 0 4px",
   },
-  closedSub: { fontSize: 11, color: "#3B6D11", margin: 0, lineHeight: 1.5 },
+  closedSub: { fontSize: 13, color: c.success, margin: 0, lineHeight: 1.5 },
   histTabs: { display: "flex", gap: 8, marginBottom: 12 },
   histTab: {
     flex: 1,
     border: "0.5px solid",
     borderRadius: 8,
     padding: "7px",
-    fontSize: 12,
+    fontSize: 14,
     cursor: "pointer",
-    fontFamily: "sans-serif",
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
   },
   histRow: {
     display: "flex",
@@ -1771,30 +1774,30 @@ const s = {
     alignItems: "center",
     padding: "10px 12px",
     backgroundColor: "#FFF",
-    border: "0.5px solid #DDDDCC",
+    border: `0.5px solid ${c.border}`,
     borderRadius: 8,
     marginBottom: 6,
     cursor: "pointer",
   },
   histDate: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: 500,
-    color: "#1A1A1A",
+    color: c.ink,
     margin: "0 0 2px",
     textTransform: "capitalize",
   },
-  histMeta: { fontSize: 11, color: "#888880", margin: 0 },
+  histMeta: { fontSize: 13, color: c.inkFaint, margin: 0 },
   histRight: { display: "flex", alignItems: "center", gap: 4 },
-  histTotal: { fontSize: 13, fontWeight: 500, color: "#1A1A1A" },
-  histArrow: { fontSize: 16, color: "#888880" },
+  histTotal: { fontSize: 15, fontWeight: 500, color: c.ink },
+  histArrow: { fontSize: 18, color: c.inkFaint },
   summaryCard: {
-    backgroundColor: "#F1EFE8",
+    backgroundColor: c.bgMuted,
     borderRadius: 8,
     padding: "12px 14px",
   },
   domCard: {
     backgroundColor: "#FFF",
-    border: "0.5px solid #DDDDCC",
+    border: `0.5px solid ${c.border}`,
     borderRadius: 8,
     padding: "10px 12px",
   },
@@ -1804,21 +1807,21 @@ const s = {
     alignItems: "center",
     marginBottom: 2,
   },
-  domCardName: { fontSize: 14, fontWeight: 600, color: "#1A1A1A" },
-  domCardTotal: { fontSize: 14, fontWeight: 600, color: "#3B6D11" },
-  domCardMeta: { fontSize: 11, color: "#888880", margin: "0 0 8px" },
+  domCardName: { fontSize: 16, fontWeight: 600, color: c.ink },
+  domCardTotal: { fontSize: 16, fontWeight: 600, color: c.success },
+  domCardMeta: { fontSize: 13, color: c.inkFaint, margin: "0 0 8px" },
   domOrderList: {
     display: "flex",
     flexDirection: "column",
     gap: 4,
-    borderTop: "0.5px solid #DDDDCC",
+    borderTop: `0.5px solid ${c.border}`,
     paddingTop: 6,
   },
   domOrderRow: {
     display: "flex",
     justifyContent: "space-between",
-    fontSize: 11,
-    color: "#666660",
+    fontSize: 13,
+    color: c.inkSoft,
   },
   finGrid: {
     display: "grid",
@@ -1828,7 +1831,7 @@ const s = {
   },
   finCard: {
     backgroundColor: "#FFF",
-    border: "0.5px solid #DDDDCC",
+    border: `0.5px solid ${c.border}`,
     borderLeft: "3px solid",
     borderRadius: 8,
     padding: "10px 12px",
@@ -1848,11 +1851,11 @@ const s = {
     gap: 8,
     padding: "7px 10px",
     backgroundColor: "#FFF",
-    border: "0.5px solid #DDDDCC",
+    border: `0.5px solid ${c.border}`,
     borderRadius: 8,
   },
   catDot: { width: 10, height: 10, borderRadius: "50%", flexShrink: 0 },
-  catName: { fontSize: 12, color: "#666660", flex: 1 },
+  catName: { fontSize: 14, color: c.inkSoft, flex: 1 },
   gastoItemList: {
     display: "flex",
     flexDirection: "column",
@@ -1862,26 +1865,26 @@ const s = {
   gastoItemRow: {
     display: "flex",
     justifyContent: "space-between",
-    fontSize: 11,
-    color: "#888880",
+    fontSize: 13,
+    color: c.inkFaint,
   },
   catQty: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: 500,
-    color: "#1A1A1A",
+    color: c.ink,
     minWidth: 50,
     textAlign: "right",
   },
   catIngreso: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: 500,
-    color: "#3B6D11",
+    color: c.success,
     minWidth: 80,
     textAlign: "right",
   },
   statProdRow: {
     backgroundColor: "#FFF",
-    border: "0.5px solid #DDDDCC",
+    border: `0.5px solid ${c.border}`,
     borderRadius: 8,
     padding: "8px 10px",
   },
@@ -1891,11 +1894,11 @@ const s = {
     alignItems: "center",
     marginBottom: 5,
   },
-  statProdName: { fontSize: 13, fontWeight: 500, color: "#1A1A1A" },
-  statProdQty: { fontSize: 12, fontWeight: 500, color: "#1A1A1A" },
+  statProdName: { fontSize: 15, fontWeight: 500, color: c.ink },
+  statProdQty: { fontSize: 14, fontWeight: 500, color: c.ink },
   statBarTrack: {
     height: 6,
-    backgroundColor: "#F1EFE8",
+    backgroundColor: c.bgMuted,
     borderRadius: 3,
     overflow: "hidden",
     marginBottom: 5,
@@ -1908,23 +1911,23 @@ const s = {
   },
   tabla: {
     backgroundColor: "#FFF",
-    border: "0.5px solid #DDDDCC",
+    border: `0.5px solid ${c.border}`,
     borderRadius: 8,
     overflow: "hidden",
   },
   tablaHeader: {
     display: "flex",
     padding: "8px 12px",
-    backgroundColor: "#F1EFE8",
-    borderBottom: "0.5px solid #DDDDCC",
-    fontSize: 11,
+    backgroundColor: c.bgMuted,
+    borderBottom: `0.5px solid ${c.border}`,
+    fontSize: 13,
     fontWeight: 500,
-    color: "#666660",
+    color: c.inkSoft,
   },
   tablaRow: {
     display: "flex",
     padding: "8px 12px",
-    borderBottom: "0.5px solid #DDDDCC",
+    borderBottom: `0.5px solid ${c.border}`,
   },
   overlay: {
     position: "fixed",
@@ -1947,23 +1950,23 @@ const s = {
     justifyContent: "space-between",
     padding: "16px 16px 0",
   },
-  modalTitle: { fontSize: 16, fontWeight: 600, color: "#1A1A1A", margin: 0 },
+  modalTitle: { fontSize: 18, fontWeight: 600, color: c.ink, margin: 0 },
   closeBtn: {
     background: "none",
     border: "none",
-    fontSize: 16,
+    fontSize: 18,
     cursor: "pointer",
-    color: "#666660",
+    color: c.inkSoft,
   },
   modalBody: { padding: 16 },
   modalDesc: {
-    fontSize: 13,
-    color: "#666660",
+    fontSize: 15,
+    color: c.inkSoft,
     marginBottom: 12,
     lineHeight: 1.5,
   },
   confirmBox: {
-    backgroundColor: "#F1EFE8",
+    backgroundColor: c.bgMuted,
     borderRadius: 8,
     padding: "10px 14px",
     marginBottom: 14,
@@ -1971,20 +1974,20 @@ const s = {
   confirmRow: {
     display: "flex",
     justifyContent: "space-between",
-    fontSize: 13,
-    color: "#666660",
+    fontSize: 15,
+    color: c.inkSoft,
     padding: "3px 0",
   },
   btnConfirm: {
     width: "100%",
     padding: 12,
-    backgroundColor: "#3B6D11",
-    color: "#EAF3DE",
+    backgroundColor: c.success,
+    color: c.successSoft,
     border: "none",
     borderRadius: 8,
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: 600,
-    fontFamily: "sans-serif",
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
     marginBottom: 8,
     cursor: "pointer",
   },
@@ -1992,21 +1995,21 @@ const s = {
     width: "100%",
     padding: 10,
     backgroundColor: "#FFF",
-    color: "#1A1A1A",
-    border: "0.5px solid #DDDDCC",
+    color: c.ink,
+    border: `0.5px solid ${c.border}`,
     borderRadius: 8,
-    fontSize: 13,
-    fontFamily: "sans-serif",
+    fontSize: 15,
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
     cursor: "pointer",
   },
   dateInput: {
     width: "100%",
-    border: "0.5px solid #B0AFA5",
+    border: `0.5px solid ${c.inkFaint}`,
     borderRadius: 8,
     padding: "8px 10px",
-    fontSize: 13,
-    color: "#1A1A1A",
-    fontFamily: "sans-serif",
+    fontSize: 15,
+    color: c.ink,
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
     boxSizing: "border-box",
   },
 };
