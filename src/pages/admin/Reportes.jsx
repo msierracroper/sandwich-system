@@ -241,7 +241,10 @@ export default function Reportes() {
     const today = new Date();
     let from, fromStr, toStr;
 
-    if (statsTab === "semana") {
+    if (statsTab === "hoy") {
+      fromStr = todayStr;
+      toStr = todayStr;
+    } else if (statsTab === "semana") {
       from = new Date(today);
       from.setDate(today.getDate() - 7);
       fromStr = from.toLocaleDateString("en-CA", {
@@ -265,8 +268,10 @@ export default function Reportes() {
       toStr = statsHasta;
     }
 
-    // Cargar items y gastos en paralelo, paginando para no cortar en 1000 filas
-    const [itemsData, expensesData] = await Promise.all([
+    // Cargar items, pedidos cerrados y gastos en paralelo, paginando para no
+    // cortar en 1000 filas. Los pedidos se traen aparte (no solo order_items)
+    // porque la forma de pago (efectivo/transferencia/mixto) vive en orders.
+    const [itemsData, ordersData, expensesData] = await Promise.all([
       fetchAllPaginated((from, to) =>
         supabase
           .from("order_items")
@@ -276,6 +281,15 @@ export default function Reportes() {
           .eq("orders.status", "cerrado")
           .gte("orders.closed_at", fromStr + "T00:00:00")
           .lte("orders.closed_at", toStr + "T23:59:59")
+          .range(from, to),
+      ),
+      fetchAllPaginated((from, to) =>
+        supabase
+          .from("orders")
+          .select("id, total, payment_method, cash_amount, transfer_amount")
+          .eq("status", "cerrado")
+          .gte("closed_at", fromStr + "T00:00:00")
+          .lte("closed_at", toStr + "T23:59:59")
           .range(from, to),
       ),
       fetchAllPaginated((from, to) =>
@@ -292,6 +306,43 @@ export default function Reportes() {
       setLoadingStats(false);
       return;
     }
+
+    // Ingresos por forma de pago — mismo criterio que el tab "Hoy": los
+    // pedidos divididos guardan su desglose en order_payments, no en orders.
+    const orders = ordersData ?? [];
+    const splitOrderIds = orders
+      .filter((o) => o.payment_method === "dividido")
+      .map((o) => o.id);
+    let splitPayments = [];
+    if (splitOrderIds.length > 0) {
+      const { data: paymentsData } = await supabase
+        .from("order_payments")
+        .select("*")
+        .in("order_id", splitOrderIds);
+      splitPayments = paymentsData ?? [];
+    }
+    const cashIngresos =
+      orders.reduce((a, o) => {
+        if (o.payment_method === "efectivo") return a + (o.total ?? 0);
+        if (o.payment_method === "mixto") return a + (o.cash_amount ?? 0);
+        return a;
+      }, 0) +
+      splitPayments.reduce((a, p) => {
+        if (p.payment_method === "efectivo") return a + p.amount;
+        if (p.payment_method === "mixto") return a + (p.cash_amount ?? 0);
+        return a;
+      }, 0);
+    const transferIngresos =
+      orders.reduce((a, o) => {
+        if (o.payment_method === "transferencia") return a + (o.total ?? 0);
+        if (o.payment_method === "mixto") return a + (o.transfer_amount ?? 0);
+        return a;
+      }, 0) +
+      splitPayments.reduce((a, p) => {
+        if (p.payment_method === "transferencia") return a + p.amount;
+        if (p.payment_method === "mixto") return a + (p.transfer_amount ?? 0);
+        return a;
+      }, 0);
 
     // Agrupar por producto
     const prodMap = {};
@@ -362,6 +413,10 @@ export default function Reportes() {
       gastosPorItem,
       utilidad,
       periodo: statsTab,
+      cashIngresos,
+      transferIngresos,
+      fromStr,
+      toStr,
     });
     setLoadingStats(false);
   }
@@ -498,6 +553,12 @@ export default function Reportes() {
   function formatDate(dateStr) {
     return new Date(dateStr + "T12:00:00").toLocaleDateString("es-CO", {
       weekday: "long",
+      day: "numeric",
+      month: "short",
+    });
+  }
+  function formatDateShort(dateStr) {
+    return new Date(dateStr + "T12:00:00").toLocaleDateString("es-CO", {
       day: "numeric",
       month: "short",
     });
@@ -949,6 +1010,7 @@ export default function Reportes() {
         <div style={s.body}>
           <div style={s.histTabs}>
             {[
+              ["hoy", "Hoy"],
               ["semana", "Esta semana"],
               ["mes", "Este mes"],
               ["personalizado", "Personalizado"],
@@ -1013,6 +1075,72 @@ export default function Reportes() {
             <p style={s.loadTxt}>No hay datos para este período</p>
           ) : (
             <>
+              {/* ── PERIODO CONSULTADO ── */}
+              <div style={s.periodBox}>
+                <p style={s.periodLabel}>Período consultado</p>
+                <p style={s.periodValue}>
+                  {statsData.fromStr === statsData.toStr
+                    ? formatDate(statsData.fromStr)
+                    : `${formatDateShort(statsData.fromStr)} – ${formatDateShort(statsData.toStr)}`}
+                </p>
+              </div>
+
+              {/* ── INGRESOS POR FORMA DE PAGO ── */}
+              <p style={s.sectionLabel}>Ingresos por forma de pago</p>
+              <div style={s.finGrid}>
+                <div style={{ ...s.finCard, borderLeftColor: c.success }}>
+                  <p style={s.statLabel}>Efectivo</p>
+                  <p style={{ ...s.statVal, fontSize: 18, color: c.success }}>
+                    {formatPrice(statsData.cashIngresos)}
+                  </p>
+                  <p style={s.statSub}>
+                    {statsData.totalIngresos > 0
+                      ? Math.round(
+                          (statsData.cashIngresos / statsData.totalIngresos) *
+                            100,
+                        )
+                      : 0}
+                    % del total
+                  </p>
+                </div>
+                <div style={{ ...s.finCard, borderLeftColor: c.info }}>
+                  <p style={s.statLabel}>Transferencia</p>
+                  <p style={{ ...s.statVal, fontSize: 18, color: c.info }}>
+                    {formatPrice(statsData.transferIngresos)}
+                  </p>
+                  <p style={s.statSub}>
+                    {statsData.totalIngresos > 0
+                      ? Math.round(
+                          (statsData.transferIngresos /
+                            statsData.totalIngresos) *
+                            100,
+                        )
+                      : 0}
+                    % del total
+                  </p>
+                </div>
+              </div>
+              {statsData.totalIngresos > 0 && (
+                <div style={{ ...s.barTrack, height: 8, marginBottom: 16 }}>
+                  <div
+                    style={{
+                      ...s.barFill,
+                      width: `${Math.round((statsData.cashIngresos / statsData.totalIngresos) * 100)}%`,
+                      backgroundColor: c.success,
+                    }}
+                  />
+                  <div
+                    style={{
+                      ...s.barFill,
+                      width: `${Math.round((statsData.transferIngresos / statsData.totalIngresos) * 100)}%`,
+                      backgroundColor: c.info,
+                    }}
+                  />
+                </div>
+              )}
+
+              <div style={s.divider} />
+
               {/* ── INGRESOS vs GASTOS vs UTILIDAD ── */}
               <p style={s.sectionLabel}>Resumen financiero</p>
               <div style={s.finGrid}>
@@ -1822,6 +1950,27 @@ const s = {
     justifyContent: "space-between",
     fontSize: 13,
     color: c.inkSoft,
+  },
+  periodBox: {
+    backgroundColor: c.bgMuted,
+    borderRadius: 8,
+    padding: "10px 12px",
+    marginBottom: 14,
+  },
+  periodLabel: {
+    fontSize: 11,
+    fontWeight: 600,
+    color: c.inkSoft,
+    textTransform: "uppercase",
+    letterSpacing: "0.03em",
+    margin: "0 0 2px",
+  },
+  periodValue: {
+    fontSize: 14,
+    fontWeight: 600,
+    color: c.ink,
+    margin: 0,
+    textTransform: "capitalize",
   },
   finGrid: {
     display: "grid",
