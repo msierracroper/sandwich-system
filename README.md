@@ -23,12 +23,13 @@ Sistema completo de punto de venta (POS) y gestión operativa para un negocio fa
 - `inventory_items`
 - `product_recipes`
 - `inventory_movements`
+- `cash_sessions` (agregada 2026-10-22, fase de prueba — ver sección de roles, Tomador)
 
 `orders` tiene además (agregado 2026-08-20, solo relevante para `type='domicilio'`): `address`, `customer_name`, `customer_phone`. El `payment_method` (columna que ya existía, normalmente se llena al cerrar el pedido) para domicilio se captura desde la creación — es informativo para el domiciliario (si debe cobrar en efectivo o ya está pagado por transferencia).
 
 ## Roles de usuario activos
 
-1. **Tomador** (order taker): PWA móvil para gestión de mesas y creación/edición de pedidos
+1. **Tomador** (order taker): PWA móvil para gestión de mesas y creación/edición de pedidos. Incluye `/tomador/caja` (agregado 2026-10-22, **fase de prueba, no obligatorio**): apertura (dinero inicial + base entregada al domiciliario) y cierre en dos niveles — (a) *cuentas del domiciliario*: debe devolver la base + lo que cobró en efectivo en domicilios (ese dinero NO se resta de la caja general porque vuelve completo, solo sale y entra); (b) *caja general*: esperado = dinero inicial + ventas en efectivo que no son de domicilio + lo que efectivamente devolvió el domiciliario, comparado contra el dinero contado físicamente. Un registro por fecha en `cash_sessions` (`date` es `unique`). Si al cargar `TomadorHome` no existe registro de hoy, se muestra un aviso no bloqueante — el tomador puede seguir operando sin abrir caja.
 2. **Preparador**: tablet en horizontal con pantalla dividida para cola de fríos/calientes, actualizaciones en tiempo real, temporizador de preparación. El layout de estaciones debe poder configurarse (columna izq/der) para reflejar la disposición física de la cocina
 3. **Admin**: control total — productos, usuarios, mesas, reportes diarios, gastos con utilidad/pérdida, CRUD de pedidos, inventario con recetas y alertas de stock
 4. **Domiciliario** (agregado 2026-08-20): ve solo pedidos `type='domicilio'` con `status='listo'`, ordenados igual que el preparador (más antiguo primero). Card con dirección (botón copiar para pegar en Waze/Maps), nombre y teléfono del cliente (tocable, `tel:`), medio de pago informativo, items e nota. Botón "Marcar como entregado" cierra el pedido (`status='cerrado'`). No existe concepto de domiciliario asignado — es una cola compartida, igual que la de preparación.

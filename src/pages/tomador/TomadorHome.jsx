@@ -53,23 +53,35 @@ const ORDER_ICON = {
   ),
 };
 
+function todayBogota() {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "America/Bogota" });
+}
+
 export default function TomadorHome() {
   const { signOut } = useAuth();
   const [tables, setTables] = useState([]);
   const [orders, setOrders] = useState([]); // pedidos activos
   const [loading, setLoading] = useState(true);
+  const [cajaAbierta, setCajaAbierta] = useState(true); // optimista: no molestar hasta saber que no hay apertura
   const navigate = useNavigate();
 
   async function loadData() {
-    const [{ data: tablesData }, { data: ordersData }] = await Promise.all([
-      supabase.from("tables").select("*").eq("active", true).order("name"),
-      supabase
-        .from("orders")
-        .select("*, tables(name)")
-        .in("status", ["abierto", "en_preparacion", "listo", "entregado"]),
-    ]);
+    const [{ data: tablesData }, { data: ordersData }, { data: cajaData }] =
+      await Promise.all([
+        supabase.from("tables").select("*").eq("active", true).order("name"),
+        supabase
+          .from("orders")
+          .select("*, tables(name)")
+          .in("status", ["abierto", "en_preparacion", "listo", "entregado"]),
+        supabase
+          .from("cash_sessions")
+          .select("id")
+          .eq("date", todayBogota())
+          .maybeSingle(),
+      ]);
     setTables(tablesData ?? []);
     setOrders(ordersData ?? []);
+    setCajaAbierta(!!cajaData);
     setLoading(false);
   }
 
@@ -133,6 +145,9 @@ export default function TomadorHome() {
           </p>
         </div>
         <div style={s.topRight}>
+          <button style={s.cajaBtn} onClick={() => navigate("/tomador/caja")}>
+            Caja
+          </button>
           <button style={s.newBtn} onClick={() => navigate("/tomador/nuevo")}>
             + nuevo
           </button>
@@ -143,6 +158,18 @@ export default function TomadorHome() {
       </div>
 
       <div style={s.body}>
+        {!cajaAbierta && (
+          <div style={s.cajaNotice} onClick={() => navigate("/tomador/caja")}>
+            <div>
+              <p style={s.cajaNoticeTitle}>Aún no se ha abierto caja hoy</p>
+              <p style={s.cajaNoticeSub}>
+                Es opcional — toca aquí si quieres registrarla.
+              </p>
+            </div>
+            <span style={s.cajaNoticeArrow}>›</span>
+          </div>
+        )}
+
         {/* Leyenda */}
         <div style={s.legend}>
           <div style={s.legendItem}>
@@ -310,7 +337,32 @@ const s = {
     cursor: "pointer",
     fontFamily: theme.font,
   },
+  cajaBtn: {
+    fontSize: 13,
+    fontWeight: 600,
+    color: c.inkSoft,
+    backgroundColor: c.bgMuted,
+    border: `1px solid ${c.border}`,
+    borderRadius: 20,
+    padding: "9px 14px",
+    cursor: "pointer",
+    fontFamily: theme.font,
+  },
   body: { padding: 18 },
+  cajaNotice: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    backgroundColor: c.warnSoft,
+    borderRadius: 12,
+    padding: "12px 14px",
+    marginBottom: 16,
+    cursor: "pointer",
+  },
+  cajaNoticeTitle: { fontSize: 14, fontWeight: 700, color: c.warn, margin: "0 0 2px" },
+  cajaNoticeSub: { fontSize: 12, color: c.warn, margin: 0 },
+  cajaNoticeArrow: { fontSize: 20, color: c.warn, flexShrink: 0 },
   legend: { display: "flex", gap: 16, marginBottom: 14 },
   legendItem: {
     display: "flex",

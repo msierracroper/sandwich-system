@@ -8,6 +8,7 @@ import PreparadorHome from "./pages/preparador/PreparadorHome";
 import DomiciliarioHome from "./pages/domiciliario/DomiciliarioHome";
 import NuevoPedido from "./pages/tomador/NuevoPedido";
 import PedidoActivo from "./pages/tomador/PedidoActivo";
+import Caja from "./pages/tomador/Caja";
 import Productos from "./pages/admin/Productos";
 import Mesas from "./pages/admin/Mesas";
 import Usuarios from "./pages/admin/Usuarios";
@@ -130,6 +131,15 @@ export default function App() {
             element={
               <PrivateRoute roles={["tomador"]}>
                 <PedidoActivo />
+              </PrivateRoute>
+            }
+          />
+
+          <Route
+            path="/tomador/caja"
+            element={
+              <PrivateRoute roles={["tomador"]}>
+                <Caja />
               </PrivateRoute>
             }
           />
