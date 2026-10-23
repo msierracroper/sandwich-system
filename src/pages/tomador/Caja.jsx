@@ -196,13 +196,18 @@ export default function Caja() {
   const domiciliarioDiff =
     domiciliarioReturned !== "" ? num(domiciliarioReturned) - domiciliarioShouldReturn : null;
 
-  // Lo que entrego el domiciliario vuelve completo a la caja, asi que la
-  // base no se resta — solo se descuenta de las ventas en efectivo la parte
-  // que corresponde a domicilios, y se suma lo que realmente devolvio (que
-  // puede no coincidir exacto con lo esperado).
+  // La base SI se resta — ese dinero salio fisicamente de la caja apenas se
+  // le entrego al domiciliario. Se vuelve a sumar solo cuando realmente lo
+  // devuelve (campo "devuelto"), que puede ser $0 si todavia no ha vuelto,
+  // parcial si le falto, o el esperado si devolvio todo. Por eso ya no se
+  // puede "simplificar" cancelando base contra devuelto: hay que restar la
+  // una y sumar la otra por separado, para que el momento en que aun no ha
+  // devuelto nada quede reflejado como menos plata en caja, no como si nunca
+  // hubiera salido.
   const expectedCash =
     session && sales
-      ? (session.opening_cash ?? 0) +
+      ? (session.opening_cash ?? 0) -
+        (session.domiciliario_base ?? 0) +
         (sales.cash - sales.domicilioCash) +
         num(domiciliarioReturned)
       : 0;
@@ -216,7 +221,10 @@ export default function Caja() {
       (session.domiciliario_base ?? 0) + ventas.domicilioCash;
     const devuelto = num(domiciliarioReturned);
     const esperado =
-      (session.opening_cash ?? 0) + (ventas.cash - ventas.domicilioCash) + devuelto;
+      (session.opening_cash ?? 0) -
+      (session.domiciliario_base ?? 0) +
+      (ventas.cash - ventas.domicilioCash) +
+      devuelto;
     const contado = num(countedCash);
     const { error: err } = await supabase
       .from("cash_sessions")
@@ -414,6 +422,10 @@ export default function Caja() {
                       </div>
 
                       <label style={s.label}>¿Cuánto devolvió el domiciliario?</label>
+                      <p style={s.hintTxt}>
+                        Viene sugerido con lo que debería ser — ajústalo a lo
+                        que de verdad entregó. Si todavía no ha vuelto, pon $0.
+                      </p>
                       <input
                         style={s.input}
                         type="number"
@@ -451,6 +463,12 @@ export default function Caja() {
                           <span>Dinero inicial</span>
                           <span style={s.kvVal}>
                             {formatPrice(session.opening_cash)}
+                          </span>
+                        </div>
+                        <div style={s.kvRow}>
+                          <span>− base entregada al domiciliario</span>
+                          <span style={{ ...s.kvVal, color: c.danger }}>
+                            −{formatPrice(session.domiciliario_base)}
                           </span>
                         </div>
                         <div style={s.kvRow}>
@@ -718,6 +736,11 @@ const s = {
     fontWeight: 600,
     color: c.inkSoft,
     marginBottom: 6,
+  },
+  hintTxt: {
+    fontSize: 12,
+    color: c.inkFaint,
+    margin: "-2px 0 6px",
   },
   input: {
     width: "100%",
