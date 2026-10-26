@@ -102,9 +102,19 @@ export default function TomadorHome() {
         },
         () => loadData(),
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log("[realtime orders-realtime]", status);
+      });
 
-    return () => supabase.removeChannel(channel);
+    // Red de seguridad: si el canal falla en silencio, esto refresca igual
+    // cada 15s para que un pedido nuevo o un cambio de estado no se quede
+    // esperando a que alguien recargue la pagina a mano.
+    const poll = setInterval(loadData, 15000);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(poll);
+    };
   }, []);
 
   // Determina si una mesa tiene pedidos activos

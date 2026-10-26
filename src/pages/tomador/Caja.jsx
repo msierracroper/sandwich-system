@@ -61,6 +61,15 @@ export default function Caja() {
   const [countedCash, setCountedCash] = useState("");
   const [closingNote, setClosingNote] = useState("");
 
+  // gastos rapidos de caja chica
+  const [gastosCaja, setGastosCaja] = useState([]);
+  const [showGastoForm, setShowGastoForm] = useState(false);
+  const [gastoAmount, setGastoAmount] = useState("");
+  const [gastoDescription, setGastoDescription] = useState("");
+  const [gastoSaving, setGastoSaving] = useState(false);
+  const [gastoError, setGastoError] = useState("");
+  const gastosCajaTotal = gastosCaja.reduce((a, g) => a + (g.amount ?? 0), 0);
+
   async function loadSession() {
     setLoading(true);
     const { data } = await supabase
@@ -72,6 +81,65 @@ export default function Caja() {
       .maybeSingle();
     setSession(data ?? null);
     setLoading(false);
+    if (data?.status === "abierta") loadGastosCaja();
+  }
+
+  // Gastos rapidos / compras de emergencia pagadas desde la caja. Se guardan
+  // en la misma tabla "expenses" que usa Admin > Gastos (bajo la categoria
+  // dedicada "Caja chica"), para que tambien aparezcan alla — esta pantalla
+  // solo lee los de hoy.
+  async function loadGastosCaja() {
+    const { data } = await supabase
+      .from("expenses")
+      .select("id, amount, description, created_at")
+      .eq("date", todayStr)
+      .eq("category", "Caja chica")
+      .order("created_at", { ascending: false });
+    setGastosCaja(data ?? []);
+  }
+
+  async function registrarGasto() {
+    setGastoError("");
+    const amount = num(gastoAmount);
+    if (amount <= 0) {
+      setGastoError("El monto debe ser mayor a 0");
+      return;
+    }
+    if (!gastoDescription.trim()) {
+      setGastoError("Di en qué se gastó");
+      return;
+    }
+    setGastoSaving(true);
+    const { data: cat } = await supabase
+      .from("expense_categories")
+      .select("id")
+      .eq("name", "Caja chica")
+      .maybeSingle();
+    const { data: item } = cat
+      ? await supabase
+          .from("expense_items")
+          .select("id")
+          .eq("category_id", cat.id)
+          .eq("name", "Compra de emergencia")
+          .maybeSingle()
+      : { data: null };
+    const { error: err } = await supabase.from("expenses").insert({
+      date: todayStr,
+      category: "Caja chica",
+      description: gastoDescription.trim(),
+      amount,
+      expense_item_id: item?.id ?? null,
+      created_by: profile.id,
+    });
+    setGastoSaving(false);
+    if (err) {
+      setGastoError("Error al guardar el gasto");
+      return;
+    }
+    setGastoAmount("");
+    setGastoDescription("");
+    setShowGastoForm(false);
+    await loadGastosCaja();
   }
 
   useEffect(() => {
@@ -209,7 +277,8 @@ export default function Caja() {
       ? (session.opening_cash ?? 0) -
         (session.domiciliario_base ?? 0) +
         (sales.cash - sales.domicilioCash) +
-        num(domiciliarioReturned)
+        num(domiciliarioReturned) -
+        gastosCajaTotal
       : 0;
   const difference = countedCash !== "" ? num(countedCash) - expectedCash : null;
 
@@ -224,7 +293,8 @@ export default function Caja() {
       (session.opening_cash ?? 0) -
       (session.domiciliario_base ?? 0) +
       (ventas.cash - ventas.domicilioCash) +
-      devuelto;
+      devuelto -
+      gastosCajaTotal;
     const contado = num(countedCash);
     const { error: err } = await supabase
       .from("cash_sessions")
@@ -241,6 +311,7 @@ export default function Caja() {
         domiciliario_should_return: debiaDevolver,
         domiciliario_returned: devuelto,
         domiciliario_difference: devuelto - debiaDevolver,
+        cash_expenses: gastosCajaTotal,
         expected_cash: esperado,
         cash_difference: contado - esperado,
         closing_note: closingNote || null,
@@ -363,6 +434,61 @@ export default function Caja() {
               )}
             </div>
 
+            {/* ── GASTOS RAPIDOS DE CAJA CHICA ── */}
+            <div style={s.gastoHeader}>
+              <p style={{ ...s.sectionLabel, marginBottom: 0 }}>
+                Gastos de caja{gastosCaja.length > 0 && ` · ${formatPrice(gastosCajaTotal)}`}
+              </p>
+              <button
+                style={s.gastoAddBtn}
+                onClick={() => {
+                  setGastoError("");
+                  setShowGastoForm(!showGastoForm);
+                }}
+              >
+                {showGastoForm ? "Cancelar" : "+ Registrar gasto"}
+              </button>
+            </div>
+
+            {showGastoForm && (
+              <div style={s.gastoForm}>
+                {gastoError && <p style={s.error}>{gastoError}</p>}
+                <input
+                  style={s.input}
+                  type="number"
+                  placeholder="Monto — $0"
+                  value={gastoAmount}
+                  onChange={(e) => setGastoAmount(e.target.value)}
+                />
+                <input
+                  style={s.input}
+                  placeholder="¿En qué se gastó? (ej: hielo, bolsas...)"
+                  value={gastoDescription}
+                  onChange={(e) => setGastoDescription(e.target.value)}
+                />
+                <button
+                  style={{ ...s.btnPrimary, opacity: gastoSaving ? 0.7 : 1 }}
+                  disabled={gastoSaving}
+                  onClick={registrarGasto}
+                >
+                  {gastoSaving ? "Guardando..." : "Guardar gasto"}
+                </button>
+              </div>
+            )}
+
+            {gastosCaja.length > 0 && (
+              <div style={{ ...s.salesCard, marginBottom: 16 }}>
+                {gastosCaja.map((g) => (
+                  <div key={g.id} style={s.kvRow}>
+                    <span>
+                      {formatTime(g.created_at)} · {g.description}
+                    </span>
+                    <span style={s.kvVal}>{formatPrice(g.amount)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {!showClosing ? (
               <button style={s.btnPrimary} onClick={abrirCierre}>
                 Cerrar caja
@@ -458,6 +584,13 @@ export default function Caja() {
                       <p style={{ ...s.sectionLabel, marginTop: 14 }}>
                         Caja general
                       </p>
+                      <p style={s.hintTxt}>
+                        Esto es cuánta plata física debería haber en el
+                        cajón — no es lo mismo que las ventas totales.
+                        Incluye el dinero con el que empezaste el día y NO
+                        incluye las transferencias (esa plata nunca pasa por
+                        la caja).
+                      </p>
                       <div style={s.salesCard}>
                         <div style={s.kvRow}>
                           <span>Dinero inicial</span>
@@ -483,9 +616,26 @@ export default function Caja() {
                             {formatPrice(num(domiciliarioReturned))}
                           </span>
                         </div>
+                        {gastosCajaTotal > 0 && (
+                          <div style={s.kvRow}>
+                            <span>− gastos de caja</span>
+                            <span style={{ ...s.kvVal, color: c.danger }}>
+                              −{formatPrice(gastosCajaTotal)}
+                            </span>
+                          </div>
+                        )}
                         <div style={{ ...s.kvRow, fontWeight: 700 }}>
                           <span>Esperado en caja</span>
                           <span style={s.kvVal}>{formatPrice(expectedCash)}</span>
+                        </div>
+                        <div style={s.divider} />
+                        <div style={s.kvRow}>
+                          <span style={{ fontStyle: "italic" }}>
+                            Ventas en transferencia (no entra en este conteo)
+                          </span>
+                          <span style={{ ...s.kvVal, color: c.inkFaint }}>
+                            {formatPrice(sales.transfer)}
+                          </span>
                         </div>
                       </div>
                     </>
@@ -622,6 +772,19 @@ export default function Caja() {
             )}
 
             <div style={s.divider} />
+            <p style={s.hintTxt}>
+              "Esperado en caja" es cuánta plata física debería haber en el
+              cajón — no son las ventas totales del día (incluye el dinero
+              inicial y excluye las transferencias).
+            </p>
+            {session.cash_expenses > 0 && (
+              <div style={s.kvRow}>
+                <span>Gastos de caja</span>
+                <span style={{ ...s.kvVal, color: c.danger }}>
+                  −{formatPrice(session.cash_expenses)}
+                </span>
+              </div>
+            )}
             <div style={s.kvRow}>
               <span>Esperado en caja</span>
               <span style={s.kvVal}>{formatPrice(session.expected_cash)}</span>
@@ -658,6 +821,14 @@ export default function Caja() {
                   : session.cash_difference > 0
                     ? `Sobraron ${formatPrice(session.cash_difference)}`
                     : `Faltaron ${formatPrice(Math.abs(session.cash_difference))}`}
+              </span>
+            </div>
+            <div style={s.kvRow}>
+              <span style={{ fontStyle: "italic" }}>
+                Ventas en transferencia (no entra en este conteo)
+              </span>
+              <span style={{ ...s.kvVal, color: c.inkFaint }}>
+                {formatPrice(session.sales_transfer)}
               </span>
             </div>
             {session.domiciliario_note && (
@@ -729,6 +900,30 @@ const s = {
     textTransform: "uppercase",
     letterSpacing: "0.03em",
     marginBottom: 10,
+  },
+  gastoHeader: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+  gastoAddBtn: {
+    fontSize: 12,
+    fontWeight: 700,
+    color: c.accent,
+    backgroundColor: c.accentSoft,
+    border: `1px solid ${c.accentBorder}`,
+    borderRadius: 20,
+    padding: "6px 12px",
+    cursor: "pointer",
+    fontFamily: theme.font,
+  },
+  gastoForm: {
+    backgroundColor: c.surface,
+    border: `1px solid ${c.border}`,
+    borderRadius: 12,
+    padding: "14px 14px 2px",
+    marginBottom: 14,
   },
   label: {
     display: "block",

@@ -313,9 +313,19 @@ export default function PreparadorHome() {
         { event: "*", schema: "public", table: "orders" },
         () => loadTickets(),
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log("[realtime prep-realtime]", status);
+      });
 
-    return () => supabase.removeChannel(channel);
+    // Red de seguridad: si el canal en tiempo real falla o se desconecta
+    // en silencio (pasa, y nadie se entera), esto refresca igual cada 15s
+    // para que un pedido nuevo nunca se quede esperando un refresco manual.
+    const poll = setInterval(loadTickets, 15000);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(poll);
+    };
   }, []);
 
   async function loadTickets() {

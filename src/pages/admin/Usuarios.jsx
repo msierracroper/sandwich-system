@@ -15,6 +15,15 @@ const ROLE_BADGE = {
   domiciliario: { label: "Domiciliario", bg: c.domicilioSoft, color: c.domicilio },
 };
 
+function EditIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />
+    </svg>
+  );
+}
+
 const EMPTY_FORM = { email: "", name: "", password: "", role: "tomador" };
 
 export default function Usuarios() {
@@ -26,6 +35,10 @@ export default function Usuarios() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [editingUserId, setEditingUserId] = useState(null);
+  const [editingName, setEditingName] = useState("");
+  const [savingName, setSavingName] = useState(false);
+  const [nameError, setNameError] = useState("");
   const {  session } = useAuth();
 
   // eslint-disable-next-line
@@ -62,6 +75,40 @@ export default function Usuarios() {
   async function toggleActive(u) {
     await supabase.from("users").update({ active: !u.active }).eq("id", u.id);
     loadUsers();
+  }
+
+  function startEditName(u) {
+    setEditingUserId(u.id);
+    setEditingName(u.name ?? "");
+    setNameError("");
+  }
+
+  function cancelEditName() {
+    setEditingUserId(null);
+    setEditingName("");
+    setNameError("");
+  }
+
+  async function saveEditName(u) {
+    const name = editingName.trim();
+    if (!name) {
+      setNameError("El nombre no puede quedar vacío");
+      return;
+    }
+    setNameError("");
+    setSavingName(true);
+    const { error: err } = await supabase
+      .from("users")
+      .update({ name })
+      .eq("id", u.id);
+    setSavingName(false);
+    if (err) {
+      setNameError("Error al guardar el nombre");
+      return;
+    }
+    setEditingUserId(null);
+    setEditingName("");
+    await loadUsers();
   }
 
   async function createUser() {
@@ -211,7 +258,44 @@ export default function Usuarios() {
             >
               <div style={s.avatar}>{initials(u.name)}</div>
               <div style={s.userInfo}>
-                <p style={s.userName}>{u.name}</p>
+                {editingUserId === u.id ? (
+                  <div>
+                    <div style={s.editNameRow}>
+                      <input
+                        style={s.editNameInput}
+                        value={editingName}
+                        onChange={(e) => setEditingName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") saveEditName(u);
+                          if (e.key === "Escape") cancelEditName();
+                        }}
+                        autoFocus
+                      />
+                      <button
+                        style={{ ...s.editSaveBtn, opacity: savingName ? 0.6 : 1 }}
+                        disabled={savingName}
+                        onClick={() => saveEditName(u)}
+                      >
+                        {savingName ? "..." : "Guardar"}
+                      </button>
+                      <button style={s.editCancelBtn} onClick={cancelEditName}>
+                        Cancelar
+                      </button>
+                    </div>
+                    {nameError && <p style={s.editError}>{nameError}</p>}
+                  </div>
+                ) : (
+                  <div style={s.userNameRow}>
+                    <p style={s.userName}>{u.name}</p>
+                    <button
+                      style={s.editIconBtn}
+                      onClick={() => startEditName(u)}
+                      aria-label={`Editar nombre de ${u.name}`}
+                    >
+                      <EditIcon />
+                    </button>
+                  </div>
+                )}
                 <p style={s.userEmail}>{u.email}</p>
               </div>
               <div style={s.userRight}>
@@ -370,6 +454,75 @@ const s = {
     fontWeight: 500,
     color: c.ink,
     margin: "0 0 2px",
+  },
+  userNameRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 2,
+  },
+  editIconBtn: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    border: "none",
+    background: "none",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    color: c.inkFaint,
+    cursor: "pointer",
+    padding: 0,
+    flexShrink: 0,
+  },
+  editNameRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 2,
+  },
+  editNameInput: {
+    flex: 1,
+    minWidth: 0,
+    border: `1px solid ${c.accent}`,
+    borderRadius: 6,
+    padding: "5px 8px",
+    fontSize: 15,
+    color: c.ink,
+    fontFamily: theme.font,
+    outline: "none",
+    backgroundColor: c.surface,
+    boxSizing: "border-box",
+  },
+  editSaveBtn: {
+    fontSize: 12,
+    fontWeight: 600,
+    color: c.accent,
+    backgroundColor: c.accentSoft,
+    border: "none",
+    borderRadius: 6,
+    padding: "6px 10px",
+    cursor: "pointer",
+    fontFamily: theme.font,
+    whiteSpace: "nowrap",
+    flexShrink: 0,
+  },
+  editCancelBtn: {
+    fontSize: 12,
+    fontWeight: 500,
+    color: c.inkSoft,
+    background: "none",
+    border: "none",
+    cursor: "pointer",
+    fontFamily: theme.font,
+    whiteSpace: "nowrap",
+    flexShrink: 0,
+    padding: "6px 2px",
+  },
+  editError: {
+    fontSize: 12,
+    color: c.danger,
+    margin: "2px 0 0",
   },
   userEmail: { fontSize: 13, color: c.inkFaint, margin: 0 },
   userRight: { display: "flex", alignItems: "center", gap: 10 },

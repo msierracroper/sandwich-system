@@ -72,6 +72,11 @@ export default function Reportes() {
   const [domHasta, setDomHasta] = useState("");
   const [domiciliosData, setDomiciliosData] = useState(null);
   const [loadingDomicilios, setLoadingDomicilios] = useState(false);
+  const [cajaTab, setCajaTab] = useState("semana");
+  const [cajaDesde, setCajaDesde] = useState("");
+  const [cajaHasta, setCajaHasta] = useState("");
+  const [cajaSessions, setCajaSessions] = useState([]);
+  const [loadingCaja, setLoadingCaja] = useState(false);
 
   async function loadDay(dateStr) {
     setLoading(true);
@@ -491,6 +496,50 @@ export default function Reportes() {
     setLoadingDomicilios(false);
   }
 
+  // Aperturas y cierres de caja del tomador (modulo "fase de prueba",
+  // agregado 2026-10-22) — cada fila de cash_sessions es un dia.
+  async function loadCajaHistorial() {
+    setLoadingCaja(true);
+    const today = new Date();
+    let from, fromStr, toStr;
+
+    if (cajaTab === "semana") {
+      from = new Date(today);
+      from.setDate(today.getDate() - 7);
+      fromStr = from.toLocaleDateString("en-CA", {
+        timeZone: "America/Bogota",
+      });
+      toStr = today.toLocaleDateString("en-CA", { timeZone: "America/Bogota" });
+    } else if (cajaTab === "mes") {
+      from = new Date(today);
+      from.setDate(1);
+      fromStr = from.toLocaleDateString("en-CA", {
+        timeZone: "America/Bogota",
+      });
+      toStr = today.toLocaleDateString("en-CA", { timeZone: "America/Bogota" });
+    } else {
+      // personalizado
+      if (!cajaDesde || !cajaHasta) {
+        setLoadingCaja(false);
+        return;
+      }
+      fromStr = cajaDesde;
+      toStr = cajaHasta;
+    }
+
+    const { data } = await supabase
+      .from("cash_sessions")
+      .select(
+        "*, opened_by_user:users!cash_sessions_opened_by_fkey(name), closed_by_user:users!cash_sessions_closed_by_fkey(name)",
+      )
+      .gte("date", fromStr)
+      .lte("date", toStr)
+      .order("date", { ascending: false });
+
+    setCajaSessions(data ?? []);
+    setLoadingCaja(false);
+  }
+
   // eslint-disable-next-line
   useEffect(() => {
     // eslint-disable-next-line
@@ -520,6 +569,12 @@ export default function Reportes() {
     // eslint-disable-next-line
     if (tab === "domicilios") loadDomicilios();
   }, [tab, domTab, domDesde, domHasta]);
+
+  // eslint-disable-next-line
+  useEffect(() => {
+    // eslint-disable-next-line
+    if (tab === "caja") loadCajaHistorial();
+  }, [tab, cajaTab, cajaDesde, cajaHasta]);
 
   async function cerrarDia() {
     setClosing(true);
@@ -561,6 +616,13 @@ export default function Reportes() {
     return new Date(dateStr + "T12:00:00").toLocaleDateString("es-CO", {
       day: "numeric",
       month: "short",
+    });
+  }
+  function formatTime(dateStr) {
+    if (!dateStr) return "";
+    return new Date(dateStr).toLocaleTimeString("es-CO", {
+      hour: "2-digit",
+      minute: "2-digit",
     });
   }
 
@@ -634,6 +696,7 @@ export default function Reportes() {
           ["historico", "Histórico"],
           ["estadisticas", "Estadísticas"],
           ["domicilios", "Domicilios"],
+          ["caja", "Caja"],
         ].map(([val, lbl]) => (
           <button
             key={val}
@@ -1598,6 +1661,256 @@ export default function Reportes() {
         </div>
       )}
 
+      {tab === "caja" && (
+        <div style={s.body}>
+          <div style={s.histTabs}>
+            {[
+              ["semana", "Esta semana"],
+              ["mes", "Este mes"],
+              ["personalizado", "Personalizado"],
+            ].map(([val, lbl]) => (
+              <button
+                key={val}
+                style={{
+                  ...s.histTab,
+                  backgroundColor: cajaTab === val ? c.accentSoft : "#FFF",
+                  borderColor: cajaTab === val ? c.accent : c.border,
+                  color: cajaTab === val ? c.accent : c.inkSoft,
+                  fontWeight: cajaTab === val ? 600 : 400,
+                }}
+                onClick={() => setCajaTab(val)}
+              >
+                {lbl}
+              </button>
+            ))}
+          </div>
+
+          {cajaTab === "personalizado" && (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 8,
+                marginBottom: 12,
+              }}
+            >
+              <div>
+                <p style={{ fontSize: 13, color: c.inkSoft, margin: "0 0 4px" }}>
+                  Desde
+                </p>
+                <input
+                  type="date"
+                  style={s.dateInput}
+                  value={cajaDesde}
+                  onChange={(e) => setCajaDesde(e.target.value)}
+                />
+              </div>
+              <div>
+                <p style={{ fontSize: 13, color: c.inkSoft, margin: "0 0 4px" }}>
+                  Hasta
+                </p>
+                <input
+                  type="date"
+                  style={s.dateInput}
+                  value={cajaHasta}
+                  onChange={(e) => setCajaHasta(e.target.value)}
+                />
+              </div>
+            </div>
+          )}
+
+          {loadingCaja ? (
+            <p style={s.loadTxt}>Cargando...</p>
+          ) : cajaSessions.length === 0 ? (
+            <p style={s.loadTxt}>No hay aperturas de caja en este período</p>
+          ) : (
+            (() => {
+              const closedSessions = cajaSessions.filter(
+                (sess) => sess.status === "cerrada",
+              );
+              const totalDiff = closedSessions.reduce(
+                (a, sess) => a + (sess.cash_difference ?? 0),
+                0,
+              );
+              return (
+                <>
+                  <div style={s.summaryCard}>
+                    <p style={s.statLabel}>Diferencia acumulada del período</p>
+                    <p
+                      style={{
+                        ...s.statVal,
+                        fontSize: 22,
+                        color:
+                          totalDiff === 0
+                            ? c.success
+                            : totalDiff > 0
+                              ? c.info
+                              : c.danger,
+                      }}
+                    >
+                      {totalDiff === 0
+                        ? "Cuadró exacto"
+                        : (totalDiff > 0 ? "+" : "−") +
+                          formatPrice(Math.abs(totalDiff))}
+                    </p>
+                    <p style={s.statSub}>
+                      {closedSessions.length} caja
+                      {closedSessions.length !== 1 ? "s" : ""} cerrada
+                      {closedSessions.length !== 1 ? "s" : ""} de{" "}
+                      {cajaSessions.length} en el período
+                    </p>
+                  </div>
+
+                  <div style={s.divider} />
+
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {cajaSessions.map((sess) => (
+                      <div key={sess.id} style={s.domCard}>
+                        <div style={s.domCardTop}>
+                          <span style={s.domCardName}>{formatDate(sess.date)}</span>
+                          <span
+                            style={{
+                              ...s.cajaBadge,
+                              backgroundColor:
+                                sess.status === "cerrada"
+                                  ? c.bgMuted
+                                  : c.successSoft,
+                              color:
+                                sess.status === "cerrada" ? c.inkSoft : c.success,
+                            }}
+                          >
+                            {sess.status === "cerrada" ? "Cerrada" : "Abierta"}
+                          </span>
+                        </div>
+                        <p style={s.domCardMeta}>
+                          Abrió {formatTime(sess.opened_at)} ·{" "}
+                          {sess.opened_by_user?.name ?? "—"}
+                          {sess.status === "cerrada" && (
+                            <>
+                              {" "}
+                              · Cerró {formatTime(sess.closed_at)} ·{" "}
+                              {sess.closed_by_user?.name ?? "—"}
+                            </>
+                          )}
+                        </p>
+
+                        <div style={s.domOrderList}>
+                          <div style={s.domOrderRow}>
+                            <span>Dinero inicial</span>
+                            <span>{formatPrice(sess.opening_cash)}</span>
+                          </div>
+                          <div style={s.domOrderRow}>
+                            <span>Base domiciliario</span>
+                            <span>{formatPrice(sess.domiciliario_base)}</span>
+                          </div>
+                          {sess.status === "cerrada" && (
+                            <>
+                              <div style={s.domOrderRow}>
+                                <span>Ventas totales</span>
+                                <span>{formatPrice(sess.sales_total)}</span>
+                              </div>
+                              <div style={s.domOrderRow}>
+                                <span>— efectivo</span>
+                                <span>{formatPrice(sess.sales_cash)}</span>
+                              </div>
+                              <div style={s.domOrderRow}>
+                                <span>— transferencia</span>
+                                <span>{formatPrice(sess.sales_transfer)}</span>
+                              </div>
+                              {sess.cash_expenses > 0 && (
+                                <div style={s.domOrderRow}>
+                                  <span>Gastos de caja</span>
+                                  <span>−{formatPrice(sess.cash_expenses)}</span>
+                                </div>
+                              )}
+                              {sess.domiciliario_difference !== null &&
+                                sess.domiciliario_difference !== 0 && (
+                                  <div
+                                    style={{
+                                      ...s.domOrderRow,
+                                      color:
+                                        sess.domiciliario_difference > 0
+                                          ? c.info
+                                          : c.danger,
+                                    }}
+                                  >
+                                    <span>Domiciliario</span>
+                                    <span>
+                                      {sess.domiciliario_difference > 0
+                                        ? `devolvió +${formatPrice(sess.domiciliario_difference)}`
+                                        : `le faltó ${formatPrice(Math.abs(sess.domiciliario_difference))}`}
+                                    </span>
+                                  </div>
+                                )}
+                              <div
+                                style={{
+                                  ...s.domOrderRow,
+                                  fontWeight: 700,
+                                  color: c.ink,
+                                }}
+                              >
+                                <span>Esperado en caja</span>
+                                <span>{formatPrice(sess.expected_cash)}</span>
+                              </div>
+                              <div
+                                style={{
+                                  ...s.domOrderRow,
+                                  fontWeight: 700,
+                                  color: c.ink,
+                                }}
+                              >
+                                <span>Contado en caja</span>
+                                <span>{formatPrice(sess.counted_cash)}</span>
+                              </div>
+                            </>
+                          )}
+                        </div>
+
+                        {sess.status === "cerrada" && (
+                          <div
+                            style={{
+                              ...s.cajaDiffBox,
+                              backgroundColor:
+                                sess.cash_difference === 0
+                                  ? c.successSoft
+                                  : sess.cash_difference > 0
+                                    ? c.infoSoft
+                                    : c.dangerSoft,
+                              color:
+                                sess.cash_difference === 0
+                                  ? c.success
+                                  : sess.cash_difference > 0
+                                    ? c.info
+                                    : c.danger,
+                            }}
+                          >
+                            {sess.cash_difference === 0
+                              ? "Cuadró exacto"
+                              : sess.cash_difference > 0
+                                ? `Sobraron ${formatPrice(sess.cash_difference)}`
+                                : `Faltaron ${formatPrice(Math.abs(sess.cash_difference))}`}
+                          </div>
+                        )}
+
+                        {sess.opening_note && (
+                          <p style={s.cajaNote}>{sess.opening_note}</p>
+                        )}
+                        {sess.domiciliario_note && (
+                          <p style={s.cajaNote}>{sess.domiciliario_note}</p>
+                        )}
+                        {sess.closing_note && (
+                          <p style={s.cajaNote}>{sess.closing_note}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              );
+            })()
+          )}
+        </div>
+      )}
+
       {/* Modal confirmacion cierre */}
       {showConfirm && (
         <div style={s.overlay} onClick={() => setShowConfirm(false)}>
@@ -1694,6 +2007,7 @@ const s = {
     padding: "10px 16px",
     backgroundColor: "#FFF",
     borderBottom: `0.5px solid ${c.border}`,
+    overflowX: "auto",
   },
   tab: {
     flex: 1,
@@ -1950,6 +2264,26 @@ const s = {
     justifyContent: "space-between",
     fontSize: 13,
     color: c.inkSoft,
+  },
+  cajaBadge: {
+    fontSize: 12,
+    fontWeight: 600,
+    padding: "3px 10px",
+    borderRadius: 20,
+  },
+  cajaDiffBox: {
+    marginTop: 8,
+    borderRadius: 8,
+    padding: "8px 10px",
+    fontSize: 13,
+    fontWeight: 700,
+    textAlign: "center",
+  },
+  cajaNote: {
+    fontSize: 12,
+    color: c.inkFaint,
+    fontStyle: "italic",
+    margin: "6px 0 0",
   },
   periodBox: {
     backgroundColor: c.bgMuted,

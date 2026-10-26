@@ -106,8 +106,18 @@ export default function PedidoActivo() {
         },
         () => loadOrder(),
       )
-      .subscribe();
-    return () => supabase.removeChannel(channel);
+      .subscribe((status) => {
+        console.log("[realtime order-" + id + "]", status);
+      });
+
+    // Red de seguridad: si el canal falla en silencio, esto refresca igual
+    // cada 15s para que este pedido no se quede desactualizado.
+    const poll = setInterval(loadOrder, 15000);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(poll);
+    };
   }, [id]);
 
   async function loadOrder() {

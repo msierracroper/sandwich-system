@@ -48,6 +48,12 @@ function DeliveryCard({ order, onUpdate }) {
   const { profile } = useAuth();
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
+  // El cliente a veces dice una cosa al tomar el pedido y paga otra al
+  // momento de la entrega — este es el valor real con el que se cierra,
+  // precargado con lo que se registro al crear el pedido pero editable.
+  const [confirmedMethod, setConfirmedMethod] = useState(
+    order.payment_method === "transferencia" ? "transferencia" : "efectivo",
+  );
 
   async function copyAddress() {
     await navigator.clipboard.writeText(order.address);
@@ -59,7 +65,11 @@ function DeliveryCard({ order, onUpdate }) {
     setSaving(true);
     const { error } = await supabase
       .from("orders")
-      .update({ status: "entregado", delivered_by: profile.id })
+      .update({
+        status: "entregado",
+        delivered_by: profile.id,
+        payment_method: confirmedMethod,
+      })
       .eq("id", order.id);
     if (error) {
       alert("Error al marcar como entregado");
@@ -101,23 +111,41 @@ function DeliveryCard({ order, onUpdate }) {
         </div>
       )}
 
-      {order.payment_method && (
-        <div
+      <p style={s.paymentLabel}>
+        ¿Cómo pagó el cliente?
+        {order.payment_method && (
+          <span style={s.paymentHint}>
+            {" "}
+            (se registró como{" "}
+            {order.payment_method === "efectivo" ? "efectivo" : "transferencia"})
+          </span>
+        )}
+      </p>
+      <div style={s.paymentRow}>
+        <button
           style={{
-            ...s.paymentBadge,
-            backgroundColor:
-              order.payment_method === "efectivo" ? c.warnSoft : c.successSoft,
-            color:
-              order.payment_method === "efectivo" ? c.warn : c.success,
+            ...s.paymentBtn,
+            backgroundColor: confirmedMethod === "efectivo" ? c.warnSoft : c.surface,
+            borderColor: confirmedMethod === "efectivo" ? c.warn : c.border,
+            color: confirmedMethod === "efectivo" ? c.warn : c.inkSoft,
           }}
+          onClick={() => setConfirmedMethod("efectivo")}
         >
-          {order.payment_method === "efectivo" ? (
-            <><CashIcon /> Cobrar efectivo</>
-          ) : (
-            "✓ Ya pagado (transferencia)"
-          )}
-        </div>
-      )}
+          <CashIcon /> Efectivo
+        </button>
+        <button
+          style={{
+            ...s.paymentBtn,
+            backgroundColor:
+              confirmedMethod === "transferencia" ? c.successSoft : c.surface,
+            borderColor: confirmedMethod === "transferencia" ? c.success : c.border,
+            color: confirmedMethod === "transferencia" ? c.success : c.inkSoft,
+          }}
+          onClick={() => setConfirmedMethod("transferencia")}
+        >
+          ⇄ Transferencia
+        </button>
+      </div>
 
       <div style={s.ticketItems}>
         {order.items.map((item) => (
@@ -145,7 +173,7 @@ function DeliveryCard({ order, onUpdate }) {
         disabled={saving}
         onClick={marcarEntregado}
       >
-        {saving ? "..." : "Marcar como entregado"}
+        {saving ? "..." : "Confirmar entrega"}
       </button>
     </div>
   );
@@ -171,9 +199,19 @@ export default function DomiciliarioHome() {
         { event: "*", schema: "public", table: "order_items" },
         () => loadOrders(),
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log("[realtime domiciliario-realtime]", status);
+      });
 
-    return () => supabase.removeChannel(channel);
+    // Red de seguridad: si el canal falla en silencio, esto refresca igual
+    // cada 15s para que un pedido que paso a "listo" no se quede esperando
+    // a que alguien recargue la pagina a mano.
+    const poll = setInterval(loadOrders, 15000);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(poll);
+    };
   }, []);
 
   async function loadOrders() {
@@ -353,15 +391,28 @@ const s = {
     color: c.accent,
     textDecoration: "none",
   },
-  paymentBadge: {
+  paymentLabel: {
+    fontSize: 13,
+    fontWeight: 600,
+    color: c.inkSoft,
+    margin: "0 0 7px",
+  },
+  paymentHint: { fontWeight: 400, fontStyle: "italic", color: c.inkFaint },
+  paymentRow: { display: "flex", gap: 8, marginBottom: 10 },
+  paymentBtn: {
+    flex: 1,
     display: "flex",
     alignItems: "center",
+    justifyContent: "center",
     gap: 7,
     fontSize: 14,
     fontWeight: 700,
-    padding: "8px 12px",
-    borderRadius: 8,
-    marginBottom: 10,
+    padding: "11px 8px",
+    borderRadius: 10,
+    border: "1.5px solid",
+    cursor: "pointer",
+    fontFamily: theme.font,
+    minHeight: 44,
   },
   ticketItems: {
     display: "flex",
