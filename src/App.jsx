@@ -14,6 +14,7 @@ import Mesas from "./pages/admin/Mesas";
 import Usuarios from "./pages/admin/Usuarios";
 import Reportes from "./pages/admin/Reportes";
 import Gastos from "./pages/admin/Gastos";
+import Nomina from "./pages/admin/Nomina";
 import Pedidos from "./pages/admin/Pedidos";
 import Inventario from "./pages/admin/Inventario";
 import Recetas from "./pages/admin/Recetas";
@@ -76,6 +77,15 @@ export default function App() {
             element={
               <PrivateRoute roles={["admin"]}>
                 <Gastos />
+              </PrivateRoute>
+            }
+          />
+
+          <Route
+            path="/admin/nomina"
+            element={
+              <PrivateRoute roles={["admin"]}>
+                <Nomina />
               </PrivateRoute>
             }
           />

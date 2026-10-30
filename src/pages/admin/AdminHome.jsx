@@ -22,6 +22,7 @@ const ICONS = {
   usuarios: <><circle cx="9" cy="8" r="3.2" /><path d="M3 20c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5" /><path d="M16.5 7a3 3 0 0 1 0 5.8" /><path d="M19 14.3c1.8.6 3 2.1 3 4.2" /></>,
   reportes: <><path d="M4 19V10M11 19V5M18 19v-7" /><path d="M3 19h18" /></>,
   gastos: <><rect x="3" y="6" width="18" height="13" rx="2" /><path d="M3 10h18" /><circle cx="16" cy="14" r="1.3" /></>,
+  nomina: <><rect x="5" y="3" width="14" height="18" rx="2" /><circle cx="12" cy="9.5" r="2.5" /><path d="M8 17c0-2 1.8-3 4-3s4 1 4 3" /></>,
   pedidos: <path d="M4 6h16M4 12h16M4 18h10" />,
   inventario: <><path d="M3 9l9-6 9 6-9 6-9-6z" /><path d="M3 9v8l9 6 9-6V9" /><path d="M12 15V9" /></>,
   recetas: <><rect x="4" y="2" width="16" height="20" rx="2" /><path d="M8 7h8M8 11h8M8 15h5" /></>,
@@ -105,6 +106,12 @@ export default function AdminHome() {
       title: "Gastos",
       desc: "Registrar y controlar gastos del negocio",
       path: "/admin/gastos",
+    },
+    {
+      icon: ICONS.nomina,
+      title: "Nómina",
+      desc: "Pagos, anticipos y préstamos por empleado",
+      path: "/admin/nomina",
     },
     {
       icon: ICONS.pedidos,
