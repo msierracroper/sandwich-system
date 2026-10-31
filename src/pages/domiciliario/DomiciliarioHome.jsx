@@ -54,6 +54,16 @@ function DeliveryCard({ order, onUpdate }) {
   const [confirmedMethod, setConfirmedMethod] = useState(
     order.payment_method === "transferencia" ? "transferencia" : "efectivo",
   );
+  const [mixedCash, setMixedCash] = useState("");
+
+  function mixedCashNum() {
+    return parseInt(String(mixedCash).replace(/\D/g, ""), 10) || 0;
+  }
+  function mixedTransferNum() {
+    return Math.max((order.total ?? 0) - mixedCashNum(), 0);
+  }
+  const mixtoInvalido =
+    confirmedMethod === "mixto" && (mixedCash === "" || mixedCashNum() > order.total);
 
   async function copyAddress() {
     await navigator.clipboard.writeText(order.address);
@@ -69,6 +79,8 @@ function DeliveryCard({ order, onUpdate }) {
         status: "entregado",
         delivered_by: profile.id,
         payment_method: confirmedMethod,
+        cash_amount: confirmedMethod === "mixto" ? mixedCashNum() : null,
+        transfer_amount: confirmedMethod === "mixto" ? mixedTransferNum() : null,
       })
       .eq("id", order.id);
     if (error) {
@@ -145,7 +157,37 @@ function DeliveryCard({ order, onUpdate }) {
         >
           ⇄ Transferencia
         </button>
+        <button
+          style={{
+            ...s.paymentBtn,
+            backgroundColor: confirmedMethod === "mixto" ? c.indigoSoft : c.surface,
+            borderColor: confirmedMethod === "mixto" ? c.indigo : c.border,
+            color: confirmedMethod === "mixto" ? c.indigo : c.inkSoft,
+          }}
+          onClick={() => setConfirmedMethod("mixto")}
+        >
+          ⇄ Mixto
+        </button>
       </div>
+
+      {confirmedMethod === "mixto" && (
+        <div style={s.mixedBox}>
+          <input
+            style={s.mixedInput}
+            type="number"
+            placeholder="Monto en efectivo: $0"
+            value={mixedCash}
+            onChange={(e) => setMixedCash(e.target.value)}
+          />
+          {mixedCashNum() > order.total ? (
+            <p style={s.mixedWarn}>El efectivo no puede ser mayor al total</p>
+          ) : (
+            <p style={s.mixedHint}>
+              Transferencia: {formatPrice(mixedTransferNum())}
+            </p>
+          )}
+        </div>
+      )}
 
       <div style={s.ticketItems}>
         {order.items.map((item) => (
@@ -169,8 +211,11 @@ function DeliveryCard({ order, onUpdate }) {
       </div>
 
       <button
-        style={{ ...s.ticketBtn, opacity: saving ? 0.6 : 1 }}
-        disabled={saving}
+        style={{
+          ...s.ticketBtn,
+          opacity: saving || mixtoInvalido ? 0.6 : 1,
+        }}
+        disabled={saving || mixtoInvalido}
         onClick={marcarEntregado}
       >
         {saving ? "..." : "Confirmar entrega"}
@@ -414,6 +459,22 @@ const s = {
     fontFamily: theme.font,
     minHeight: 44,
   },
+  mixedBox: { marginBottom: 10 },
+  mixedInput: {
+    width: "100%",
+    border: `1px solid ${c.indigoSoft}`,
+    borderRadius: 10,
+    padding: "11px 13px",
+    fontSize: 15,
+    color: c.ink,
+    fontFamily: theme.font,
+    outline: "none",
+    backgroundColor: c.surface,
+    boxSizing: "border-box",
+    marginBottom: 6,
+  },
+  mixedHint: { fontSize: 13, color: c.inkSoft, margin: 0 },
+  mixedWarn: { fontSize: 13, color: c.danger, margin: 0, fontWeight: 600 },
   ticketItems: {
     display: "flex",
     flexDirection: "column",
