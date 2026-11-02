@@ -22,11 +22,37 @@ const TYPE_META = {
   cuota_prestamo: { label: "Cuota de préstamo", color: c.info, bg: c.infoSoft },
 };
 
+const WEEKDAYS = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+
 function today() {
   return new Date().toLocaleDateString("en-CA", { timeZone: "America/Bogota" });
 }
 
-const EMPTY_EMPLOYEE = { name: "", role: "", pay_schedule: "diario", daily_rate: "" };
+function formatShort(d) {
+  return new Date(d + "T12:00:00").toLocaleDateString("es-CO", { day: "numeric", month: "short" });
+}
+
+// Rango de 7 dias que termina en el proximo "corte" (o hoy, si hoy es el
+// corte) — asi el saldo de la semana se puede ir viendo acumular dia a dia
+// y, llegado el dia de pago, ya esta listo.
+function currentPeriod(cutoffWeekday) {
+  const now = new Date(today() + "T12:00:00");
+  const diff = (cutoffWeekday - now.getDay() + 7) % 7;
+  const end = new Date(now);
+  end.setDate(now.getDate() + diff);
+  const start = new Date(end);
+  start.setDate(end.getDate() - 6);
+  const fmt = (d) => d.toLocaleDateString("en-CA");
+  return { start: fmt(start), end: fmt(end) };
+}
+
+const EMPTY_EMPLOYEE = {
+  name: "",
+  role: "",
+  pay_schedule: "diario",
+  daily_rate: "",
+  pay_cutoff_weekday: "5",
+};
 const EMPTY_MOVEMENT = { type: "devengado", date: today(), amount: "", note: "" };
 
 export default function Nomina() {
@@ -46,6 +72,7 @@ export default function Nomina() {
 
   const [showMovForm, setShowMovForm] = useState(false);
   const [movForm, setMovForm] = useState(EMPTY_MOVEMENT);
+  const [editingMovId, setEditingMovId] = useState(null);
   const [savingMov, setSavingMov] = useState(false);
   const [movError, setMovError] = useState("");
 
@@ -97,6 +124,22 @@ export default function Nomina() {
     return { porPagar: devengado - pagado, prestamo };
   }
 
+  // Igual que balancesFor, pero solo con los movimientos dentro de la semana
+  // actual (segun el dia de corte del empleado) — para ver cuanto se ha ido
+  // acumulando sin mezclar semanas anteriores ya pagadas.
+  function weekBalanceFor(employeeId, cutoffWeekday) {
+    const period = currentPeriod(cutoffWeekday);
+    const movs = movements.filter(
+      (m) =>
+        m.employee_id === employeeId &&
+        m.date >= period.start &&
+        m.date <= period.end,
+    );
+    const devengado = sumType(movs, "devengado") + sumType(movs, "comision");
+    const pagado = sumType(movs, "pago") + sumType(movs, "anticipo");
+    return { period, saldo: devengado - pagado };
+  }
+
   const selectedEmployee = employees.find((e) => e.id === selectedId) ?? null;
 
   function openNewEmployee() {
@@ -112,6 +155,8 @@ export default function Nomina() {
       role: emp.role ?? "",
       pay_schedule: emp.pay_schedule,
       daily_rate: emp.daily_rate != null ? String(emp.daily_rate) : "",
+      pay_cutoff_weekday:
+        emp.pay_cutoff_weekday != null ? String(emp.pay_cutoff_weekday) : "5",
     });
     setEditingEmpId(emp.id);
     setEmpError("");
@@ -130,6 +175,8 @@ export default function Nomina() {
       role: empForm.role.trim() || null,
       pay_schedule: empForm.pay_schedule,
       daily_rate: empForm.daily_rate ? Number(empForm.daily_rate) : null,
+      pay_cutoff_weekday:
+        empForm.pay_schedule === "semanal" ? Number(empForm.pay_cutoff_weekday) : null,
     };
     const { error: err } = editingEmpId
       ? await supabase.from("employees").update(payload).eq("id", editingEmpId)
@@ -152,6 +199,14 @@ export default function Nomina() {
 
   function openMovement(type) {
     setMovForm({ ...EMPTY_MOVEMENT, type });
+    setEditingMovId(null);
+    setMovError("");
+    setShowMovForm(true);
+  }
+
+  function openEditMovement(m) {
+    setMovForm({ type: m.type, date: m.date, amount: String(m.amount), note: m.note ?? "" });
+    setEditingMovId(m.id);
     setMovError("");
     setShowMovForm(true);
   }
@@ -167,15 +222,67 @@ export default function Nomina() {
     });
   }
 
+  // "Pago" y "anticipo" son plata que de verdad sale del negocio para el
+  // empleado, asi que cuentan como gasto en Admin > Reportes. Prestamo y
+  // cuota_prestamo NO — un prestamo se espera recuperar, no es una perdida.
+  // Devengado/comision tampoco, porque todavia no se ha pagado esa plata.
+  function esGastoReal(type) {
+    return type === "pago" || type === "anticipo";
+  }
+
+  async function getNominaItemId() {
+    const { data: cat } = await supabase
+      .from("expense_categories")
+      .select("id")
+      .eq("name", "Nómina")
+      .maybeSingle();
+    if (!cat) return null;
+    const { data: item } = await supabase
+      .from("expense_items")
+      .select("id")
+      .eq("category_id", cat.id)
+      .eq("name", "Pago empleado")
+      .maybeSingle();
+    return item?.id ?? null;
+  }
+
+  function expenseDescription(employeeName, type, note) {
+    return (
+      employeeName +
+      (note ? ` — ${note}` : "") +
+      (type === "anticipo" ? " (anticipo)" : "")
+    );
+  }
+
   async function registerMovement(payload) {
     setMovError("");
-    const { error: err } = await supabase.from("employee_movements").insert({
-      ...payload,
-      created_by: profile.id,
-    });
+    const { data: inserted, error: err } = await supabase
+      .from("employee_movements")
+      .insert({ ...payload, created_by: profile.id })
+      .select()
+      .single();
     if (err) {
       setMovError("Error al registrar el movimiento");
       return false;
+    }
+    if (esGastoReal(payload.type)) {
+      const employeeName = employees.find((e) => e.id === payload.employee_id)?.name ?? "Empleado";
+      const itemId = await getNominaItemId();
+      const { data: exp } = await supabase
+        .from("expenses")
+        .insert({
+          date: payload.date,
+          category: "Nómina",
+          description: expenseDescription(employeeName, payload.type, payload.note),
+          amount: payload.amount,
+          expense_item_id: itemId,
+          created_by: profile.id,
+        })
+        .select()
+        .single();
+      if (exp) {
+        await supabase.from("employee_movements").update({ expense_id: exp.id }).eq("id", inserted.id);
+      }
     }
     loadMovements();
     return true;
@@ -186,13 +293,65 @@ export default function Nomina() {
       setMovError("El monto debe ser mayor a 0");
       return;
     }
+    setMovError("");
     setSavingMov(true);
+    const date = movForm.date;
+    const type = movForm.type;
+    const amount = Number(movForm.amount);
+    const note = movForm.note.trim() || null;
+
+    if (editingMovId) {
+      const origMov = movements.find((m) => m.id === editingMovId);
+      const { error: err } = await supabase
+        .from("employee_movements")
+        .update({ date, type, amount, note })
+        .eq("id", editingMovId);
+      if (err) {
+        setSavingMov(false);
+        setMovError("Error al guardar cambios");
+        return;
+      }
+      if (esGastoReal(type)) {
+        const description = expenseDescription(selectedEmployee.name, type, note);
+        if (origMov?.expense_id) {
+          await supabase
+            .from("expenses")
+            .update({ date, amount, description })
+            .eq("id", origMov.expense_id);
+        } else {
+          const itemId = await getNominaItemId();
+          const { data: exp } = await supabase
+            .from("expenses")
+            .insert({
+              date,
+              category: "Nómina",
+              description,
+              amount,
+              expense_item_id: itemId,
+              created_by: profile.id,
+            })
+            .select()
+            .single();
+          if (exp) {
+            await supabase.from("employee_movements").update({ expense_id: exp.id }).eq("id", editingMovId);
+          }
+        }
+      } else if (origMov?.expense_id) {
+        await supabase.from("expenses").delete().eq("id", origMov.expense_id);
+        await supabase.from("employee_movements").update({ expense_id: null }).eq("id", editingMovId);
+      }
+      setSavingMov(false);
+      setShowMovForm(false);
+      loadMovements();
+      return;
+    }
+
     const ok = await registerMovement({
       employee_id: selectedEmployee.id,
-      date: movForm.date,
-      type: movForm.type,
-      amount: Number(movForm.amount),
-      note: movForm.note.trim() || null,
+      date,
+      type,
+      amount,
+      note,
     });
     setSavingMov(false);
     if (ok) setShowMovForm(false);
@@ -200,6 +359,10 @@ export default function Nomina() {
 
   async function deleteMovement(id) {
     if (!confirm("¿Eliminar este movimiento?")) return;
+    const mov = movements.find((m) => m.id === id);
+    if (mov?.expense_id) {
+      await supabase.from("expenses").delete().eq("id", mov.expense_id);
+    }
     await supabase.from("employee_movements").delete().eq("id", id);
     loadMovements();
   }
@@ -208,6 +371,11 @@ export default function Nomina() {
   if (selectedEmployee) {
     const bal = balancesFor(selectedEmployee.id);
     const movs = movements.filter((m) => m.employee_id === selectedEmployee.id);
+    const week =
+      selectedEmployee.pay_schedule === "semanal" &&
+      selectedEmployee.pay_cutoff_weekday != null
+        ? weekBalanceFor(selectedEmployee.id, selectedEmployee.pay_cutoff_weekday)
+        : null;
 
     return (
       <div style={s.page}>
@@ -238,6 +406,21 @@ export default function Nomina() {
         </div>
 
         <div style={s.body}>
+          {week && (
+            <div style={s.weekCard}>
+              <div style={s.weekHeader}>
+                <span style={s.weekLabel}>Semana actual</span>
+                <span style={s.weekRange}>
+                  {formatShort(week.period.start)} – {formatShort(week.period.end)}
+                </span>
+              </div>
+              <p style={s.weekVal}>{formatPrice(week.saldo)}</p>
+              <p style={s.weekHint}>
+                Se paga el {WEEKDAYS[selectedEmployee.pay_cutoff_weekday]}
+              </p>
+            </div>
+          )}
+
           <div style={s.balGrid}>
             <div style={{ ...s.balCard, backgroundColor: c.accentSoft }}>
               <p style={{ ...s.balLabel, color: c.accentDark }}>Saldo por pagar</p>
@@ -291,6 +474,9 @@ export default function Nomina() {
                     <div style={s.expenseRight}>
                       <p style={s.expenseAmount}>{formatPrice(m.amount)}</p>
                       <div style={s.expenseActions}>
+                        <button style={s.iconBtn} onClick={() => openEditMovement(m)}>
+                          ✏️
+                        </button>
                         <button
                           style={{ ...s.iconBtn, color: c.danger }}
                           onClick={() => deleteMovement(m.id)}
@@ -310,7 +496,9 @@ export default function Nomina() {
           <div style={s.overlay} onClick={() => setShowMovForm(false)}>
             <div style={s.modal} onClick={(e) => e.stopPropagation()}>
               <div style={s.modalHeader}>
-                <p style={s.modalTitle}>Nuevo movimiento</p>
+                <p style={s.modalTitle}>
+                  {editingMovId ? "Editar movimiento" : "Nuevo movimiento"}
+                </p>
                 <button style={s.closeBtn} onClick={() => setShowMovForm(false)}>
                   ✕
                 </button>
@@ -363,7 +551,11 @@ export default function Nomina() {
                   disabled={savingMov}
                   onClick={saveMovement}
                 >
-                  {savingMov ? "Guardando..." : "Guardar movimiento"}
+                  {savingMov
+                    ? "Guardando..."
+                    : editingMovId
+                      ? "Guardar cambios"
+                      : "Guardar movimiento"}
                 </button>
                 <button style={s.btnGhost} onClick={() => setShowMovForm(false)}>
                   Cancelar
@@ -415,6 +607,10 @@ export default function Nomina() {
           <div style={s.expenseList}>
             {employees.map((emp) => {
               const bal = balancesFor(emp.id);
+              const week =
+                emp.pay_schedule === "semanal" && emp.pay_cutoff_weekday != null
+                  ? weekBalanceFor(emp.id, emp.pay_cutoff_weekday)
+                  : null;
               return (
                 <div key={emp.id} style={s.empRow} onClick={() => setSelectedId(emp.id)}>
                   <div style={s.empInfo}>
@@ -426,9 +622,16 @@ export default function Nomina() {
                         </span>
                       )}
                       <span style={s.expenseDate}>
-                        {emp.pay_schedule === "diario" ? "Pago diario" : "Pago semanal"}
+                        {emp.pay_schedule === "diario"
+                          ? "Pago diario"
+                          : `Pago ${WEEKDAYS[emp.pay_cutoff_weekday]?.toLowerCase() ?? "semanal"}`}
                       </span>
                     </div>
+                    {week && (
+                      <p style={{ ...s.expenseDate, color: c.success, marginTop: 4 }}>
+                        Esta semana: {formatPrice(week.saldo)}
+                      </p>
+                    )}
                   </div>
                   <div style={s.expenseRight}>
                     <p style={s.expenseAmount}>{formatPrice(bal.porPagar)}</p>
@@ -498,6 +701,25 @@ function EmployeeFormModal({ form, setForm, error, saving, editing, onSave, onCl
             <option value="semanal">Semanal</option>
           </select>
 
+          {form.pay_schedule === "semanal" && (
+            <>
+              <p style={s.label}>Día de pago (corte de la semana)</p>
+              <select
+                style={s.select}
+                value={form.pay_cutoff_weekday}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, pay_cutoff_weekday: e.target.value }))
+                }
+              >
+                {WEEKDAYS.map((name, i) => (
+                  <option key={i} value={i}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
+
           <p style={s.label}>Tarifa fija por día (opcional)</p>
           <input
             style={s.input}
@@ -533,6 +755,13 @@ const s = {
   body: { padding: 16 },
   loadTxt: { fontSize: 15, color: c.inkFaint, textAlign: "center", padding: 20 },
   divider: { height: "0.5px", backgroundColor: c.border, margin: "10px 0" },
+
+  weekCard: { backgroundColor: c.successSoft, borderRadius: 12, padding: "12px 14px", marginBottom: 14 },
+  weekHeader: { display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 },
+  weekLabel: { fontSize: 12, fontWeight: 700, color: c.success, textTransform: "uppercase", letterSpacing: "0.02em" },
+  weekRange: { fontSize: 12, color: c.success },
+  weekVal: { fontSize: 24, fontWeight: 800, color: c.success, margin: "0 0 2px" },
+  weekHint: { fontSize: 12, color: c.success, margin: 0, opacity: 0.85 },
 
   balGrid: { display: "flex", gap: 10, marginBottom: 14 },
   balCard: { flex: 1, borderRadius: 12, padding: "12px 14px" },
