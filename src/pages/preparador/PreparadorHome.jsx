@@ -1,6 +1,6 @@
 // ARCHIVO: src/pages/preparador/PreparadorHome.jsx
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../context/useAuth";
 import { theme } from "../../theme";
@@ -46,6 +46,25 @@ function urgencyColor(minutes) {
   if (minutes < 5) return { color: c.success, bg: c.successSoft };
   if (minutes < 10) return { color: c.warn, bg: c.warnSoft };
   return { color: c.danger, bg: c.dangerSoft };
+}
+
+// Sonido "Alerta" (3 pitidos cuadrados cortos) para avisar que llego un
+// pedido nuevo. Se crea un solo AudioContext y se desbloquea con el primer
+// toque en la pantalla — los navegadores no dejan sonar audio hasta que
+// hay una interaccion real del usuario con la pagina.
+function beepSquare(ctx, startOffset) {
+  const t0 = ctx.currentTime + startOffset;
+  const osc = ctx.createOscillator();
+  const g = ctx.createGain();
+  osc.type = "square";
+  osc.frequency.value = 1000;
+  osc.connect(g);
+  g.connect(ctx.destination);
+  g.gain.setValueAtTime(0.18, t0);
+  g.gain.setValueAtTime(0.18, t0 + 0.06);
+  g.gain.linearRampToValueAtTime(0, t0 + 0.09);
+  osc.start(t0);
+  osc.stop(t0 + 0.11);
 }
 
 function ClockIcon() {
@@ -275,6 +294,41 @@ export default function PreparadorHome() {
   const [tickets, setTickets] = useState({ frio: [], caliente: [] });
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(Date.now());
+  const audioCtxRef = useRef(null);
+  // null = todavia no se cargo la cola ni una vez — sirve para no sonar por
+  // los pedidos que ya estaban en cola cuando se abrio la pantalla.
+  const seenOrderIdsRef = useRef(null);
+
+  function getAudioCtx() {
+    if (!audioCtxRef.current) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      audioCtxRef.current = new AC();
+    }
+    return audioCtxRef.current;
+  }
+
+  function playAlerta() {
+    const ctx = getAudioCtx();
+    if (ctx.state === "suspended") return; // aun no hubo un toque que desbloquee audio
+    beepSquare(ctx, 0);
+    beepSquare(ctx, 0.16);
+    beepSquare(ctx, 0.32);
+  }
+
+  // El primer toque en la pantalla desbloquea el audio para el resto del dia
+  // (los navegadores no dejan sonar nada sin una interaccion del usuario).
+  useEffect(() => {
+    const ctx = getAudioCtx();
+    function unlock() {
+      if (ctx.state === "suspended") ctx.resume();
+    }
+    document.addEventListener("click", unlock);
+    document.addEventListener("touchstart", unlock);
+    return () => {
+      document.removeEventListener("click", unlock);
+      document.removeEventListener("touchstart", unlock);
+    };
+  }, []);
   const [viewMode, setViewMode] = useState(() => {
     try {
       return localStorage.getItem(VIEW_MODE_KEY) ?? "ambas";
@@ -387,6 +441,23 @@ export default function PreparadorHome() {
     }
     for (const id of Object.keys(grouped.caliente)) {
       grouped.caliente[id].combined = frioIds.has(id);
+    }
+
+    // Sonar solo si aparecio un pedido que no estaba antes en la cola — no
+    // en cada refresco, ni cuando el mismo pedido cambia de pendiente a en
+    // preparacion (eso lo hace el propio preparador, no hace falta avisarle).
+    const allIds = new Set([...frioIds, ...calienteIds]);
+    if (seenOrderIdsRef.current === null) {
+      seenOrderIdsRef.current = allIds;
+    } else {
+      let hayNuevo = false;
+      for (const id of allIds) {
+        if (!seenOrderIdsRef.current.has(id)) {
+          seenOrderIdsRef.current.add(id);
+          hayNuevo = true;
+        }
+      }
+      if (hayNuevo) playAlerta();
     }
 
     setTickets({
