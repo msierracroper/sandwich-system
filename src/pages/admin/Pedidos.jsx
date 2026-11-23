@@ -21,6 +21,18 @@ const PREP_LABEL = {
   listo: { label: "Listo", color: c.success },
 };
 
+// Los productos de un pedido solo tienen 3 estados posibles (pendiente /
+// en_preparacion / listo) — cuando el admin fuerza el estado del PEDIDO
+// (por ejemplo para corregir un cierre por error), cada producto debe
+// quedar coherente con eso, no es solo el pedido el que cambia.
+const STATUS_TO_PREP = {
+  abierto: "pendiente",
+  en_preparacion: "en_preparacion",
+  listo: "listo",
+  entregado: "listo",
+  cerrado: "listo",
+};
+
 const CATEGORIAS = [
   { value: "todos", label: "Todos" },
   { value: "sandwich", label: "Sandwiches" },
@@ -354,14 +366,30 @@ export default function Pedidos() {
   }
 
   async function changeStatus(order, newStatus) {
+    if (order.status === newStatus) return;
+    if (order.status === "cerrado") {
+      if (
+        !confirm(
+          "Este pedido ya estaba cerrado. ¿Seguro que quieres cambiar su estado? Si ya se incluyó en un cierre de caja o en un reporte, eso no se ajusta solo.",
+        )
+      )
+        return;
+    }
     const closedAt =
       newStatus === "cerrado" ? new Date().toISOString() : order.closed_at;
     await supabase
       .from("orders")
       .update({ status: newStatus, closed_at: closedAt })
       .eq("id", order.id);
+
+    const itemPayload = { prep_status: STATUS_TO_PREP[newStatus] ?? "pendiente" };
+    if (newStatus === "abierto") itemPayload.prep_started_at = null;
+    if (newStatus === "en_preparacion") itemPayload.prep_started_at = new Date().toISOString();
+    await supabase.from("order_items").update(itemPayload).eq("order_id", order.id);
+
     setSelected((prev) => ({ ...prev, status: newStatus, closed_at: closedAt }));
     await loadOrders();
+    await loadOrderItems(order.id);
   }
 
   function formatPrice(n) {
@@ -943,8 +971,9 @@ export default function Pedidos() {
                 </div>
               )}
 
-              {/* Cambiar estado */}
-              {!editMode && selected.status !== "cerrado" && (
+              {/* Cambiar estado — tambien disponible si el pedido ya esta
+                  cerrado, para corregir un cierre hecho por error. */}
+              {!editMode && (
                 <>
                   <div style={s.divider} />
                   <p
